@@ -118,10 +118,9 @@ app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
       });
     }
 
-    // Get all daily stats documents
+    // Get all daily stats documents (last 30 days)
     const statsSnapshot = await db.collection('daily_stats')
-      .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
-      .limit(30) // Last 30 days
+      .limit(30)
       .get();
 
     const userOrders = [];
@@ -135,6 +134,9 @@ app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
         })));
       }
     });
+
+    // Sort by timestamp in descending order (most recent first)
+    userOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     res.json({ success: true, orders: userOrders });
   } catch (error) {

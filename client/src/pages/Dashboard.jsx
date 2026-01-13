@@ -122,10 +122,10 @@ function Dashboard() {
             <button
               onClick={() => handleOrder(bev.type)}
               disabled={loading || statsLoading}
-              className={`w-full bg-${bev.accentColor}-600 hover:bg-${bev.accentColor}-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
-              style={{
-                backgroundColor: loading || statsLoading ? undefined : `var(--color-${bev.type})`
-              }}
+              className={`w-full text-white font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${bev.type === 'tea' ? 'bg-blue-600 hover:bg-blue-700' :
+                  bev.type === 'coffee' ? 'bg-amber-600 hover:bg-amber-700' :
+                    'bg-orange-600 hover:bg-orange-700'
+                }`}
             >
               Order {bev.label}
             </button>
@@ -162,8 +162,8 @@ function Dashboard() {
                     type="button"
                     onClick={() => setNewNotice({ ...newNotice, type: type.value })}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${newNotice.type === type.value
-                        ? `bg-${type.color}-100 text-${type.color}-700 border-2 border-${type.color}-500`
-                        : 'bg-gray-50 text-gray-700 border-2 border-transparent hover:bg-gray-100'
+                      ? `bg-${type.color}-100 text-${type.color}-700 border-2 border-${type.color}-500`
+                      : 'bg-gray-50 text-gray-700 border-2 border-transparent hover:bg-gray-100'
                       }`}
                   >
                     {type.icon} {type.label}
@@ -207,7 +207,7 @@ function Dashboard() {
         )}
       </div>
 
-      <NoticeBoard ref={noticeBoardRef} />
+      <NoticeBoard ref={noticeBoardRef} userRole={userRole} />
     </Layout>
   );
 }
