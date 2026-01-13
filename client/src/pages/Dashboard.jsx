@@ -115,7 +115,7 @@ function Dashboard() {
                 <p className="text-sm font-medium text-gray-600 mb-1">Total {bev.label}</p>
                 <p className="text-4xl font-bold text-gray-900">{statsLoading ? '...' : bev.count}</p>
               </div>
-              <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bev.color} flex items-center justify-center text-2xl`}>
+              <div className={`w-14 h-14 rounded-full bg-linear-to-br ${bev.color} flex items-center justify-center text-2xl`}>
                 {bev.icon}
               </div>
             </div>
