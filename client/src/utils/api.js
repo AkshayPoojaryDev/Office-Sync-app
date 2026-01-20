@@ -72,8 +72,11 @@ export const api = {
     getStats: () =>
         apiClient.get('/api/stats'),
 
-    getUserOrders: (userId) =>
-        apiClient.get(`/api/orders/user/${userId}`),
+    getUserOrders: (userId, params = {}) =>
+        apiClient.get(`/api/orders/user/${userId}`, { params }),
+
+    getUserStats: (userId) =>
+        apiClient.get(`/api/users/${userId}/stats`),
 
     // Notice endpoints
     getNotices: (params = {}) =>

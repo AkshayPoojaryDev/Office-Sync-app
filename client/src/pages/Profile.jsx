@@ -25,27 +25,20 @@ export default function Profile() {
                     setUserRole('user');
                 }
 
-                // Fetch order history for stats
+                // Fetch order stats directly from optimized endpoint
                 if (currentUser?.uid) {
-                    const response = await api.getUserOrders(currentUser.uid);
-                    const orders = response.data.orders || [];
+                    const response = await api.getUserStats(currentUser.uid);
+                    if (response.data.success) {
+                        const { totalOrders, typeCounts, favoriteBeverage } = response.data.stats;
 
-                    const stats = {
-                        total: orders.length,
-                        tea: orders.filter(o => o.type === 'tea').length,
-                        coffee: orders.filter(o => o.type === 'coffee').length,
-                        juice: orders.filter(o => o.type === 'juice').length,
-                    };
-
-                    // Determine favorite
-                    const max = Math.max(stats.tea, stats.coffee, stats.juice);
-                    if (max > 0) {
-                        if (stats.tea === max) stats.favorite = 'tea';
-                        else if (stats.coffee === max) stats.favorite = 'coffee';
-                        else stats.favorite = 'juice';
+                        setOrderStats({
+                            total: totalOrders,
+                            tea: typeCounts.tea,
+                            coffee: typeCounts.coffee,
+                            juice: typeCounts.juice,
+                            favorite: favoriteBeverage === 'None' ? null : favoriteBeverage.toLowerCase()
+                        });
                     }
-
-                    setOrderStats(stats);
                 }
             } catch (error) {
                 console.error('Error fetching profile data:', error);
@@ -92,8 +85,8 @@ export default function Profile() {
                                     <div className="flex items-center gap-3">
                                         <h2 className="text-2xl font-bold text-white">{displayName}</h2>
                                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${userRole === 'admin'
-                                                ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
-                                                : 'bg-blue-400/20 text-blue-200 border border-blue-400/30'
+                                            ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
+                                            : 'bg-blue-400/20 text-blue-200 border border-blue-400/30'
                                             }`}>
                                             {userRole === 'admin' ? '👑 Admin' : '👤 Employee'}
                                         </span>

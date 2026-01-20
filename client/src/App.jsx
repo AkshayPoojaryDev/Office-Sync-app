@@ -1,13 +1,22 @@
-// client/src/App.jsx
+import { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ToastProvider from "./components/Toast";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import OrderHistory from "./pages/OrderHistory";
-import AdminDashboard from "./pages/AdminDashboard";
-import Profile from "./pages/Profile";
+
+// Lazy load pages for performance optimization
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const OrderHistory = lazy(() => import("./pages/OrderHistory"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+
+// Loading Fallback Component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+  </div>
+);
 
 // Security Component: Redirects to login if no user is found
 function PrivateRoute({ children }) {
@@ -21,46 +30,48 @@ function App() {
       <Router>
         <AuthProvider>
           <ToastProvider />
-          <Routes>
-            <Route path="/" element={<Login />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Login />} />
 
-            {/* Protected Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              }
-            />
+              {/* Protected Routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <PrivateRoute>
+                    <Dashboard />
+                  </PrivateRoute>
+                }
+              />
 
-            <Route
-              path="/order-history"
-              element={
-                <PrivateRoute>
-                  <OrderHistory />
-                </PrivateRoute>
-              }
-            />
+              <Route
+                path="/order-history"
+                element={
+                  <PrivateRoute>
+                    <OrderHistory />
+                  </PrivateRoute>
+                }
+              />
 
-            <Route
-              path="/admin"
-              element={
-                <PrivateRoute>
-                  <AdminDashboard />
-                </PrivateRoute>
-              }
-            />
+              <Route
+                path="/admin"
+                element={
+                  <PrivateRoute>
+                    <AdminDashboard />
+                  </PrivateRoute>
+                }
+              />
 
-            <Route
-              path="/profile"
-              element={
-                <PrivateRoute>
-                  <Profile />
-                </PrivateRoute>
-              }
-            />
-          </Routes>
+              <Route
+                path="/profile"
+                element={
+                  <PrivateRoute>
+                    <Profile />
+                  </PrivateRoute>
+                }
+              />
+            </Routes>
+          </Suspense>
         </AuthProvider>
       </Router>
     </ErrorBoundary>

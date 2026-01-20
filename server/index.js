@@ -116,9 +116,12 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // Route: Get User's Order History (Protected)
+// Route: Get User's Order History (Protected) - Paginated
 app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = parseInt(req.query.offset) || 0;
+    const type = req.query.type || 'all';
 
     // Users can only view their own orders unless they're admin
     if (req.user.uid !== userId && req.user.role !== 'admin') {
@@ -128,16 +131,23 @@ app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
       });
     }
 
-    // Get all daily stats documents (last 30 days)
+    // Get all daily stats documents (last 60 days to ensure we have enough history)
     const statsSnapshot = await db.collection('daily_stats')
-      .limit(30)
+      .orderBy(admin.firestore.FieldPath.documentId(), 'desc') // Get newest days first
+      .limit(60)
       .get();
 
-    const userOrders = [];
+    let userOrders = [];
     statsSnapshot.docs.forEach(doc => {
       const data = doc.data();
       if (data.orders) {
-        const filtered = data.orders.filter(order => order.userId === userId);
+        let filtered = data.orders.filter(order => order.userId === userId);
+
+        // Filter by type if specified
+        if (type !== 'all') {
+          filtered = filtered.filter(order => order.type === type);
+        }
+
         userOrders.push(...filtered.map(order => ({
           ...order,
           date: doc.id
@@ -148,10 +158,77 @@ app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
     // Sort by timestamp in descending order (most recent first)
     userOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    res.json({ success: true, orders: userOrders });
+    const totalOrders = userOrders.length;
+    const hasMore = offset + limit < totalOrders;
+
+    // Slice for pagination
+    const paginatedOrders = userOrders.slice(offset, offset + limit);
+
+    res.json({
+      success: true,
+      orders: paginatedOrders,
+      pagination: {
+        total: totalOrders,
+        limit,
+        offset,
+        hasMore
+      }
+    });
   } catch (error) {
     console.error("Order history fetch error:", error);
     res.status(500).json({ error: "Failed to fetch order history" });
+  }
+});
+
+// Route: Get User Stats (Protected) - Optimized for Profile
+app.get('/api/users/:uid/stats', verifyToken, async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    if (req.user.uid !== uid && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    // Fetch last 60 days of data for stats
+    const statsSnapshot = await db.collection('daily_stats').limit(60).get();
+
+    let totalOrders = 0;
+    const typeCounts = { tea: 0, coffee: 0, juice: 0 };
+
+    statsSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.orders) {
+        const userOrders = data.orders.filter(o => o.userId === uid);
+        totalOrders += userOrders.length;
+        userOrders.forEach(o => {
+          if (typeCounts[o.type] !== undefined) {
+            typeCounts[o.type]++;
+          }
+        });
+      }
+    });
+
+    // Determine favorite
+    let favorite = 'None';
+    let maxCount = 0;
+    Object.entries(typeCounts).forEach(([type, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        favorite = type.charAt(0).toUpperCase() + type.slice(1);
+      }
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalOrders,
+        favoriteBeverage: favorite,
+        typeCounts
+      }
+    });
+  } catch (error) {
+    console.error("Stats fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
 

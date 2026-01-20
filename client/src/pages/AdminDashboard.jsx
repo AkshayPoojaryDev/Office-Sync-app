@@ -43,33 +43,33 @@ export default function AdminDashboard() {
         <Layout>
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="mt-1 text-sm text-gray-600">Analytics and insights for the last 7 days</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Analytics and insights for the last 7 days</p>
             </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600 mb-1">Total Orders</p>
-                            <p className="text-3xl font-bold text-gray-900">{totals.total}</p>
-                            <p className="text-xs text-gray-500 mt-1">Last 7 days</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Orders</p>
+                            <p className="text-3xl font-bold text-gray-900 dark:text-white">{totals.total}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last 7 days</p>
                         </div>
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-12 h-12 bg-gray-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                            <svg className="w-6 h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600 mb-1">Tea Orders</p>
-                            <p className="text-3xl font-bold text-gray-900">{totals.tea}</p>
-                            <p className="text-xs text-gray-500 mt-1">{((totals.tea / totals.total) * 100 || 0).toFixed(1)}% of total</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Tea Orders</p>
+                            <p className="text-3xl font-bold text-gray-900 dark:text-white">{totals.tea}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{((totals.tea / totals.total) * 100 || 0).toFixed(1)}% of total</p>
                         </div>
                         <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
                             <span className="text-2xl">🫖</span>
@@ -77,12 +77,12 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600 mb-1">Coffee Orders</p>
-                            <p className="text-3xl font-bold text-gray-900">{totals.coffee}</p>
-                            <p className="text-xs text-gray-500 mt-1">{((totals.coffee / totals.total) * 100 || 0).toFixed(1)}% of total</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Coffee Orders</p>
+                            <p className="text-3xl font-bold text-gray-900 dark:text-white">{totals.coffee}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{((totals.coffee / totals.total) * 100 || 0).toFixed(1)}% of total</p>
                         </div>
                         <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
                             <span className="text-2xl">☕</span>
@@ -90,12 +90,12 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600 mb-1">Juice Orders</p>
-                            <p className="text-3xl font-bold text-gray-900">{totals.juice}</p>
-                            <p className="text-xs text-gray-500 mt-1">{((totals.juice / totals.total) * 100 || 0).toFixed(1)}% of total</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Juice Orders</p>
+                            <p className="text-3xl font-bold text-gray-900 dark:text-white">{totals.juice}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{((totals.juice / totals.total) * 100 || 0).toFixed(1)}% of total</p>
                         </div>
                         <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
                             <span className="text-2xl">🧃</span>

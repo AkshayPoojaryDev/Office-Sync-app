@@ -10,16 +10,55 @@ export default function OrderHistory() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [stats, setStats] = useState({ total: 0, tea: 0, coffee: 0, juice: 0 });
+    const [offset, setOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const LIMIT = 20;
 
     useEffect(() => {
-        fetchOrders();
+        fetchStats();
+        fetchOrders(true); // Initial fetch
     }, []);
 
-    const fetchOrders = async () => {
+    const fetchStats = async () => {
         try {
-            setLoading(true);
-            const response = await api.getUserOrders(currentUser.uid);
-            setOrders(response.data.orders || []);
+            const response = await api.getUserStats(currentUser.uid);
+            if (response.data.success) {
+                const { totalOrders, typeCounts } = response.data.stats;
+                setStats({
+                    total: totalOrders,
+                    ...typeCounts
+                });
+            }
+        } catch (error) {
+            console.error("Failed to load stats", error);
+        }
+    };
+
+    const fetchOrders = async (reset = false) => {
+        try {
+            if (reset) {
+                setLoading(true);
+                setOffset(0);
+            }
+
+            const currentOffset = reset ? 0 : offset;
+
+            const response = await api.getUserOrders(currentUser.uid, {
+                limit: LIMIT,
+                offset: currentOffset,
+                type: filter === 'all' ? undefined : filter // Pass filter only if not 'all'
+            });
+
+            if (reset) {
+                setOrders(response.data.orders || []);
+            } else {
+                setOrders(prev => [...prev, ...response.data.orders]);
+            }
+
+            const pagination = response.data.pagination;
+            setHasMore(pagination.hasMore);
+            setOffset(currentOffset + LIMIT);
         } catch (error) {
             toast.error("Failed to load order history");
         } finally {
@@ -27,20 +66,19 @@ export default function OrderHistory() {
         }
     };
 
-    const filteredOrders = filter === 'all'
-        ? orders
-        : orders.filter(order => order.type === filter);
-
-    const stats = {
-        total: orders.length,
-        tea: orders.filter(o => o.type === 'tea').length,
-        coffee: orders.filter(o => o.type === 'coffee').length,
-        juice: orders.filter(o => o.type === 'juice').length
+    const handleFilterChange = (newFilter) => {
+        if (newFilter === filter) return;
+        setFilter(newFilter);
     };
+
+    // Better to use useEffect for filter changes
+    useEffect(() => {
+        fetchOrders(true);
+    }, [filter]);
 
     const exportToCSV = () => {
         const headers = ['Date', 'Time', 'Type', 'Email'];
-        const rows = filteredOrders.map(order => [
+        const rows = orders.map(order => [
             new Date(order.timestamp).toLocaleDateString(),
             new Date(order.timestamp).toLocaleTimeString(),
             order.type,
@@ -66,74 +104,74 @@ export default function OrderHistory() {
         <Layout>
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Order History</h1>
-                <p className="mt-1 text-sm text-gray-600">View and export your beverage orders</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Order History</h1>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">View and export your beverage orders</p>
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm font-medium text-gray-600 mb-1">Total Orders</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Orders</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm font-medium text-gray-600 mb-1">Tea Orders</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.tea}</p>
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Tea Orders</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.tea}</p>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm font-medium text-gray-600 mb-1">Coffee Orders</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.coffee}</p>
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Coffee Orders</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.coffee}</p>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-sm font-medium text-gray-600 mb-1">Juice Orders</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.juice}</p>
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Juice Orders</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.juice}</p>
                 </div>
             </div>
 
             {/* Filters and Export */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 mb-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex flex-wrap gap-2">
                         <button
-                            onClick={() => setFilter('all')}
+                            onClick={() => handleFilterChange('all')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'all'
-                                    ? 'bg-gray-900 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-gray-900 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-gray-300 dark:hover:bg-slate-600'
                                 }`}
                         >
-                            All ({stats.total})
+                            All
                         </button>
                         <button
-                            onClick={() => setFilter('tea')}
+                            onClick={() => handleFilterChange('tea')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'tea'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30'
                                 }`}
                         >
-                            Tea ({stats.tea})
+                            Tea
                         </button>
                         <button
-                            onClick={() => setFilter('coffee')}
+                            onClick={() => handleFilterChange('coffee')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'coffee'
-                                    ? 'bg-amber-600 text-white'
-                                    : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30'
                                 }`}
                         >
-                            Coffee ({stats.coffee})
+                            Coffee
                         </button>
                         <button
-                            onClick={() => setFilter('juice')}
+                            onClick={() => handleFilterChange('juice')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'juice'
-                                    ? 'bg-orange-600 text-white'
-                                    : 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:hover:bg-orange-900/30'
                                 }`}
                         >
-                            Juice ({stats.juice})
+                            Juice
                         </button>
                     </div>
                     <button
                         onClick={exportToCSV}
-                        disabled={filteredOrders.length === 0}
+                        disabled={orders.length === 0}
                         className="inline-flex items-center px-4 py-2 bg-[#486581] hover:bg-[#334e68] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                     >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,7 +183,7 @@ export default function OrderHistory() {
             </div>
 
             {/* Orders Table */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -165,7 +203,7 @@ export default function OrderHistory() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredOrders.length === 0 ? (
+                            ) : orders.length === 0 ? (
                                 <tr>
                                     <td colSpan="3" className="px-6 py-12 text-center">
                                         <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -175,7 +213,7 @@ export default function OrderHistory() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredOrders.map((order, index) => (
+                                orders.map((order, index) => (
                                     <tr key={index} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">
@@ -194,10 +232,10 @@ export default function OrderHistory() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${order.type === 'tea'
-                                                    ? 'bg-blue-100 text-blue-700'
-                                                    : order.type === 'coffee'
-                                                        ? 'bg-amber-100 text-amber-700'
-                                                        : 'bg-orange-100 text-orange-700'
+                                                ? 'bg-blue-100 text-blue-700'
+                                                : order.type === 'coffee'
+                                                    ? 'bg-amber-100 text-amber-700'
+                                                    : 'bg-orange-100 text-orange-700'
                                                 }`}>
                                                 {order.type === 'tea' ? '🫖 Tea' : order.type === 'coffee' ? '☕ Coffee' : '🧃 Juice'}
                                             </span>
@@ -212,12 +250,21 @@ export default function OrderHistory() {
                     </table>
                 </div>
 
-                {/* Pagination info */}
-                {!loading && filteredOrders.length > 0 && (
-                    <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                        <p className="text-sm text-gray-600">
-                            Showing {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'}
+                {/* Pagination info and Load More */}
+                {!loading && (
+                    <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Showing {orders.length} orders
                         </p>
+
+                        {hasMore && (
+                            <button
+                                onClick={() => fetchOrders(false)}
+                                className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
+                            >
+                                Load More Orders
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
