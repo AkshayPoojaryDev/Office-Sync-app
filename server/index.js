@@ -119,6 +119,7 @@ app.get('/api/stats', async (req, res) => {
 // Route: Get User's Order History (Protected) - Paginated
 app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
   try {
+    const { userId } = req.params;
     const limit = parseInt(req.query.limit) || 20;
     const offset = parseInt(req.query.offset) || 0;
     const type = req.query.type || 'all';
@@ -131,10 +132,15 @@ app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
       });
     }
 
-    // Get all daily stats documents (last 60 days to ensure we have enough history)
+    // Calculate date 60 days ago for filtering
+    const date = new Date();
+    date.setDate(date.getDate() - 60);
+    const dateString = date.toISOString().split('T')[0];
+
+    // Get all daily stats documents from the last 60 days
+    // Using where() > dateString avoids the need for a descending index on __name__
     const statsSnapshot = await db.collection('daily_stats')
-      .orderBy(admin.firestore.FieldPath.documentId(), 'desc') // Get newest days first
-      .limit(60)
+      .where(admin.firestore.FieldPath.documentId(), '>=', dateString)
       .get();
 
     let userOrders = [];
@@ -189,8 +195,15 @@ app.get('/api/users/:uid/stats', verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
+    // Calculate date 60 days ago
+    const date = new Date();
+    date.setDate(date.getDate() - 60);
+    const dateString = date.toISOString().split('T')[0];
+
     // Fetch last 60 days of data for stats
-    const statsSnapshot = await db.collection('daily_stats').limit(60).get();
+    const statsSnapshot = await db.collection('daily_stats')
+      .where(admin.firestore.FieldPath.documentId(), '>=', dateString)
+      .get();
 
     let totalOrders = 0;
     const typeCounts = { tea: 0, coffee: 0, juice: 0 };
