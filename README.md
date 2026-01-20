@@ -1,113 +1,51 @@
-# OfficeSync 🏢
+# 🏢 OfficeSync
+### The Operating System for the Modern Workplace
 
-**OfficeSync** is a modern, full-stack office management application designed to streamline daily office activities. It features a beverage ordering system, an interactive digital noticeboard with polls, and comprehensive admin analytics.
+![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)
+![Status](https://img.shields.io/badge/status-maintenance-orange?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+![Tech](https://img.shields.io/badge/stack-MERN%2BFirebase-red?style=for-the-badge)
 
-![OfficeSync Dashboard](https://via.placeholder.com/800x400?text=OfficeSync+Dashboard)
+**OfficeSync** is a full-stack solution designed to bridge the gap between physical office needs and digital management. By digitizing beverage procurement and internal communications, OfficeSync reduces administrative friction and enhances workplace culture through a responsive, real-time interface.
+
+---
+
+## 📸 Screenshots
+
+| **Dashboard (Glassmorphism)** | **Notice Board (Paper/Cork)** |
+|:---:|:---:|
+| ![Dashboard](https://via.placeholder.com/400x200/4F46E5/FFFFFF?text=Dashboard+Stats) | ![Noticeboard](https://via.placeholder.com/400x200/F59E0B/FFFFFF?text=Sticky+Notes) |
+| *Real-time analytics & Quick Actions* | *Interactive polls & pinned notices* |
+
+---
 
 ## 🚀 Key Features
 
-### ☕ Beverage Ordering
-- **Smart Slots**: Ordering is available during specific morning (before 10:30 AM) and evening (3:00 PM - 5:30 PM) windows.
-- **Card Interface**: Beautiful, animated cards for Tea, Coffee, and Juice.
-- **Limits**: Daily limit enforcement (1 cup per slot).
+### ☕ Intelligent Beverage Logistics
+- **Smart Time-Windows**: Server-side validation prevents ordering outside specific windows (Morning < 10:30 AM, Evening 3:00-5:30 PM).
+- **Concurrency Control**: Firestore transactions ensure inventory accuracy even when multiple users order simultaneously.
+- **Quick Re-order**: One-tap ordering based on your most frequent customization.
 
-### 📌 Interactive NoticeBoard
-- **Digital Corkboard**: Announcements appear as realistic sticky notes with pushpins and folded corners.
-- **Polls**: Integrated polling system with real-time voting, vote changes, and visual progress bars.
-- **Admin Controls**: Admins can pin, edit, and delete notices directly from the board.
+### 📌 The Digital Corkboard
+- **Skeuomorphic Design**: "Sticky notes" with CSS-generated folded corners and pushpins.
+- **Live Polling**: Real-time visualization of votes with duplicate-vote prevention.
+- **Admin Controls**: Pin, lock, or delete threads instantly.
 
-### 📊 Dashboards & Analytics
-- **User Profile**: Personal stats, favorite beverage detection, and role badges.
-- **Order History**: Paginated, filterable history of all user orders with CSV export.
-- **Admin Dashboard**: 7-day trend analysis and consumption breakdown.
-
-### 🌗 Modern UI/UX
-- **Dark Mode**: Fully integrated dark theme controlled by a system-wide toggle.
-- **Responsive**: Mobile-first design using Tailwind CSS.
-- **Performance**: Optimized with code splitting (Lazy Loading) and efficient server-side pagination.
+### 📊 Admin Analytics
+- **Consumption Trends**: 7-day rolling average of beverage consumption.
+- **Export Data**: One-click CSV export for monthly billing and vendor management.
+- **User Management**: Role-based access control (RBAC) to manage staff and admins.
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ Architecture
 
-- **Frontend**: React (Vite), Tailwind CSS v4, Framer Motion (animations), React Router v6.
-- **Backend**: Node.js, Express.js.
-- **Database & Auth**: Firebase Firestore, Firebase Authentication.
-- **Tools**: Axios, React Hot Toast, Heroicons.
+OfficeSync uses a **Hybrid Serverless** approach. Auth and DB are managed by Firebase for scalability, while complex business logic resides in an Express server.
 
----
-
-## ⚙️ Installation & Setup
-
-### Prerequisites
-- Node.js (v18+)
-- Firebase Project with Firestore and Auth enabled.
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/yourusername/office-sync.git
-cd office-sync
-```
-
-### 2. Server Setup
-Navigate to the server directory and install dependencies:
-```bash
-cd server
-npm install
-```
-
-**Configuration**:
-1. Place your Firebase Admin SDK key (`serviceAccountKey.json`) in the `server/` root.
-2. Create a `.env` file in `server/` with:
-   ```env
-   PORT=5000
-   ```
-3. Run the setup script to initialize Firestore limits (optional):
-   ```bash
-   node scripts/setupFirebase.js
-   ```
-4. Start the server:
-   ```bash
-   node index.js
-   ```
-
-### 3. Client Setup
-Open a new terminal, navigate to the client directory, and install dependencies:
-```bash
-cd client
-npm install
-```
-
-**Configuration**:
-Create a `.env` file in `client/` with your Firebase config:
-```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_API_BASE_URL=http://localhost:5000
-```
-
-Start the development server:
-```bash
-npm run dev
-```
-
----
-
-## 🧪 Testing
-
-The application includes a robust testing report covering:
-- ✅ Scalability (pagination for 100+ items)
-- ✅ Dark Mode coverage
-- ✅ Poll functionality (voting/unvoting)
-
-For a detailed verification report, check `testing_report.md` in the documentation.
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License.
+```mermaid
+graph TD
+    Client[React Client] -->|Auth Token| Auth[Firebase Auth]
+    Client -->|REST API| Server[Node/Express Server]
+    Client -->|Real-time| DB[(Firestore)]
+    Server -->|Admin SDK| DB
+    Server -->|Validation| DB
