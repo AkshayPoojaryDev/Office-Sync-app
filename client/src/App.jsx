@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import OrderHistory from "./pages/OrderHistory";
 import AdminDashboard from "./pages/AdminDashboard";
+import Profile from "./pages/Profile";
 
 // Security Component: Redirects to login if no user is found
 function PrivateRoute({ children }) {
@@ -47,6 +48,15 @@ function App() {
               element={
                 <PrivateRoute>
                   <AdminDashboard />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute>
+                  <Profile />
                 </PrivateRoute>
               }
             />

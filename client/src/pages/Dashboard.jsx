@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import Layout from "../components/Layout";
 import NoticeBoard from "../components/NoticeBoard";
+import CountdownTimer from "../components/CountdownTimer";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../utils/api";
 
@@ -102,29 +103,37 @@ function Dashboard() {
     <Layout>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">Welcome back, {currentUser?.email?.split('@')[0]}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-600">Welcome back, {currentUser?.email?.split('@')[0]}</p>
+          </div>
+          <CountdownTimer />
+        </div>
       </div>
 
       {/* Beverage Orders */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {beverages.map((bev) => (
-          <div key={bev.type} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-200">
+          <div
+            key={bev.type}
+            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-xl hover:scale-[1.02] hover:border-gray-300 transition-all duration-300 ease-out group"
+          >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Total {bev.label}</p>
-                <p className="text-4xl font-bold text-gray-900">{statsLoading ? '...' : bev.count}</p>
+                <p className="text-4xl font-bold text-gray-900 transition-transform group-hover:scale-105">{statsLoading ? '...' : bev.count}</p>
               </div>
-              <div className={`w-14 h-14 rounded-full bg-linear-to-br ${bev.color} flex items-center justify-center text-2xl`}>
+              <div className={`w-14 h-14 rounded-full bg-linear-to-br ${bev.color} flex items-center justify-center text-2xl shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
                 {bev.icon}
               </div>
             </div>
             <button
               onClick={() => handleOrder(bev.type)}
               disabled={loading || statsLoading}
-              className={`w-full text-white font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${bev.type === 'tea' ? 'bg-blue-600 hover:bg-blue-700' :
-                  bev.type === 'coffee' ? 'bg-amber-600 hover:bg-amber-700' :
-                    'bg-orange-600 hover:bg-orange-700'
+              className={`w-full text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:translate-y-[-2px] active:translate-y-0 ${bev.type === 'tea' ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200' :
+                bev.type === 'coffee' ? 'bg-amber-600 hover:bg-amber-700 hover:shadow-lg hover:shadow-amber-200' :
+                  'bg-orange-600 hover:bg-orange-700 hover:shadow-lg hover:shadow-orange-200'
                 }`}
             >
               Order {bev.label}
