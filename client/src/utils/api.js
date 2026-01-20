@@ -88,6 +88,10 @@ export const api = {
     deleteNotice: (id) =>
         apiClient.delete(`/api/notices/${id}`),
 
+    // Poll endpoints
+    voteOnPoll: (noticeId, optionIndex) =>
+        apiClient.post(`/api/notices/${noticeId}/vote`, { optionIndex }),
+
     // Admin endpoints
     getAdminStats: () =>
         apiClient.get('/api/admin/stats'),

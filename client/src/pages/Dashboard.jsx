@@ -20,6 +20,8 @@ function Dashboard() {
   const [newNotice, setNewNotice] = useState({ title: "", message: "", type: "general" });
   const [submitting, setSubmitting] = useState(false);
   const [userRole, setUserRole] = useState('user');
+  const [isPollMode, setIsPollMode] = useState(false);
+  const [pollOptions, setPollOptions] = useState(['', '']);
 
   useEffect(() => {
     fetchStats();
@@ -71,13 +73,36 @@ function Dashboard() {
       toast.error("Please fill in all fields");
       return;
     }
+
+    // Validate poll options if in poll mode
+    if (isPollMode) {
+      const validOptions = pollOptions.filter(opt => opt.trim() !== '');
+      if (validOptions.length < 2) {
+        toast.error("Please add at least 2 poll options");
+        return;
+      }
+    }
+
     setSubmitting(true);
-    const toastId = toast.loading("Publishing announcement...");
+    const toastId = toast.loading(isPollMode ? "Creating poll..." : "Publishing announcement...");
     try {
-      await api.createNotice({ title: newNotice.title, message: newNotice.message, type: newNotice.type });
-      toast.success("Announcement published successfully", { id: toastId });
+      const noticeData = {
+        title: newNotice.title,
+        message: newNotice.message,
+        type: isPollMode ? 'poll' : newNotice.type
+      };
+
+      // Add poll options if in poll mode
+      if (isPollMode) {
+        noticeData.pollOptions = pollOptions.filter(opt => opt.trim() !== '');
+      }
+
+      await api.createNotice(noticeData);
+      toast.success(isPollMode ? "Poll created successfully! 📊" : "Announcement published successfully", { id: toastId });
       setShowForm(false);
       setNewNotice({ title: "", message: "", type: "general" });
+      setIsPollMode(false);
+      setPollOptions(['', '']);
       if (noticeBoardRef.current?.refresh) noticeBoardRef.current.refresh();
     } catch (error) {
       toast.error(error || "Failed to post announcement", { id: toastId });
@@ -161,54 +186,146 @@ function Dashboard() {
 
         {/* Admin Form */}
         {showForm && userRole === 'admin' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Announcement</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {isPollMode ? '📊 Create Poll' : 'Create Announcement'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPollMode(!isPollMode);
+                  if (!isPollMode) setPollOptions(['', '']);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isPollMode
+                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                  : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20'
+                  }`}
+              >
+                📊 {isPollMode ? 'Switch to Announcement' : 'Create Poll'}
+              </button>
+            </div>
+
             <form onSubmit={handlePostNotice} className="space-y-4">
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {noticeTypes.map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    onClick={() => setNewNotice({ ...newNotice, type: type.value })}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${newNotice.type === type.value
-                      ? `bg-${type.color}-100 text-${type.color}-700 border-2 border-${type.color}-500`
-                      : 'bg-gray-50 text-gray-700 border-2 border-transparent hover:bg-gray-100'
-                      }`}
-                  >
-                    {type.icon} {type.label}
-                  </button>
-                ))}
-              </div>
+              {/* Type selector - only show when not in poll mode */}
+              {!isPollMode && (
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {noticeTypes.map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setNewNotice({ ...newNotice, type: type.value })}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${newNotice.type === type.value
+                        ? `bg-${type.color}-100 text-${type.color}-700 border-2 border-${type.color}-500`
+                        : 'bg-gray-50 text-gray-700 border-2 border-transparent hover:bg-gray-100 dark:bg-slate-700 dark:text-gray-300'
+                        }`}
+                    >
+                      {type.icon} {type.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Title</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  {isPollMode ? 'Poll Question' : 'Title'}
+                </label>
                 <input
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#486581] focus:border-transparent"
-                  placeholder="Enter announcement title"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-[#486581] focus:border-transparent dark:bg-slate-700 dark:text-white"
+                  placeholder={isPollMode ? "What would you like to ask?" : "Enter announcement title"}
                   value={newNotice.title}
                   onChange={e => setNewNotice({ ...newNotice, title: e.target.value })}
                   maxLength={100}
                   required
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Message</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  {isPollMode ? 'Description (optional)' : 'Message'}
+                </label>
                 <textarea
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#486581] focus:border-transparent"
-                  placeholder="Write the announcement details..."
-                  rows="4"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-[#486581] focus:border-transparent dark:bg-slate-700 dark:text-white"
+                  placeholder={isPollMode ? "Add more context for the poll..." : "Write the announcement details..."}
+                  rows={isPollMode ? 2 : 4}
                   value={newNotice.message}
                   onChange={e => setNewNotice({ ...newNotice, message: e.target.value })}
                   maxLength={1000}
-                  required
+                  required={!isPollMode}
                 />
-                <p className="text-xs text-gray-500 mt-1">{newNotice.message.length}/1000 characters</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{newNotice.message.length}/1000 characters</p>
               </div>
+
+              {/* Poll Options */}
+              {isPollMode && (
+                <div className="space-y-3 p-4 border-2 border-purple-200 dark:border-purple-800 rounded-xl bg-purple-50/50 dark:bg-purple-900/10">
+                  <label className="block text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                    <span>📊</span>
+                    Poll Options
+                  </label>
+                  {pollOptions.map((option, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        className="flex-1 px-4 py-2 border-2 border-purple-200 dark:border-purple-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-700 dark:text-white bg-white"
+                        placeholder={`Option ${index + 1}`}
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = [...pollOptions];
+                          newOptions[index] = e.target.value;
+                          setPollOptions(newOptions);
+                        }}
+                        maxLength={100}
+                      />
+                      {pollOptions.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== index))}
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border-2 border-transparent hover:border-red-200"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {pollOptions.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={() => setPollOptions([...pollOptions, ''])}
+                      className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 font-medium px-2 py-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Option
+                    </button>
+                  )}
+                  <p className="text-xs text-purple-500 dark:text-purple-400">Add 2-6 options for your poll</p>
+                </div>
+              )}
+
               <div className="flex gap-3">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setIsPollMode(false);
+                    setPollOptions(['', '']);
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors"
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 bg-[#486581] hover:bg-[#334e68] text-white font-medium rounded-lg transition-colors disabled:opacity-50">
-                  {submitting ? 'Publishing...' : 'Publish'}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className={`flex-1 px-4 py-2.5 font-medium rounded-lg transition-colors disabled:opacity-50 ${isPollMode
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                    : 'bg-[#486581] hover:bg-[#334e68] text-white'
+                    }`}
+                >
+                  {submitting ? (isPollMode ? 'Creating Poll...' : 'Publishing...') : (isPollMode ? '📊 Create Poll' : 'Publish')}
                 </button>
               </div>
             </form>

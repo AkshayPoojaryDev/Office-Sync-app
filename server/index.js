@@ -181,11 +181,11 @@ app.get('/api/notices', async (req, res) => {
 
 // Route: Post a New Notice (Admin Only + Rate Limited + Validated)
 app.post('/api/notices', verifyToken, requireAdmin, noticeLimiter, validateNotice, async (req, res) => {
-  const { title, message } = req.body;
+  const { title, message, pollOptions } = req.body;
   const { email, displayName } = req.user;
 
   try {
-    await db.collection('notices').add({
+    const noticeData = {
       title,
       message,
       author: email,
@@ -194,7 +194,19 @@ app.post('/api/notices', verifyToken, requireAdmin, noticeLimiter, validateNotic
       type: req.body.type || "general",
       isPinned: false,
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    // Add poll data if pollOptions are provided
+    if (pollOptions && Array.isArray(pollOptions) && pollOptions.length >= 2) {
+      noticeData.isPoll = true;
+      noticeData.pollOptions = pollOptions.map(option => ({
+        text: option,
+        votes: 0
+      }));
+      noticeData.voters = []; // Track who has voted
+    }
+
+    await db.collection('notices').add(noticeData);
 
     res.status(200).json({ success: true, message: "Notice posted!" });
   } catch (error) {
@@ -229,6 +241,70 @@ app.delete('/api/notices/:id', verifyToken, requireAdmin, validateNoticeId, asyn
   } catch (error) {
     console.error("Notice delete error:", error);
     res.status(500).json({ error: "Failed to delete notice" });
+  }
+});
+
+// Route: Vote on a Poll (Protected) - supports vote change/removal
+app.post('/api/notices/:id/vote', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { optionIndex } = req.body; // optionIndex can be null to remove vote
+    const { uid } = req.user;
+
+    const noticeRef = db.collection('notices').doc(id);
+
+    await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(noticeRef);
+
+      if (!doc.exists) {
+        throw new Error("Notice not found");
+      }
+
+      const data = doc.data();
+
+      if (!data.isPoll || !data.pollOptions) {
+        throw new Error("This notice is not a poll");
+      }
+
+      // votes is now an object: { [uid]: optionIndex }
+      const votes = data.votes || {};
+      const pollOptions = [...data.pollOptions];
+      const previousVote = votes[uid];
+
+      // If user had a previous vote, decrement that option
+      if (previousVote !== undefined && previousVote !== null) {
+        if (pollOptions[previousVote]) {
+          pollOptions[previousVote].votes = Math.max(0, pollOptions[previousVote].votes - 1);
+        }
+      }
+
+      // Handle vote removal (optionIndex is null)
+      if (optionIndex === null) {
+        delete votes[uid];
+      } else {
+        // Validate new vote
+        if (typeof optionIndex !== 'number' || optionIndex < 0 || optionIndex >= pollOptions.length) {
+          throw new Error("Invalid option index");
+        }
+
+        // Add new vote
+        pollOptions[optionIndex].votes += 1;
+        votes[uid] = optionIndex;
+      }
+
+      transaction.update(noticeRef, {
+        pollOptions,
+        votes,
+        // Keep voters array for backward compatibility
+        voters: Object.keys(votes)
+      });
+    });
+
+    const action = optionIndex === null ? 'removed' : 'recorded';
+    res.status(200).json({ success: true, message: `Vote ${action}!` });
+  } catch (error) {
+    console.error("Vote error:", error);
+    res.status(400).json({ error: error.message || "Failed to vote" });
   }
 });
 

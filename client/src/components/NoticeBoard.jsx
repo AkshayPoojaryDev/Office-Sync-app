@@ -1,6 +1,7 @@
-// Professional NoticeBoard Component - Sticky Note Design
+// Professional NoticeBoard Component - Sticky Note Design with Polls
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { useNotices } from "../hooks/useNotices";
+import { useAuth } from "../contexts/AuthContext";
 import { api } from "../utils/api";
 import toast from "react-hot-toast";
 
@@ -33,19 +34,28 @@ const STICKY_CONFIG = {
     pin: 'bg-green-600',
     label: '🎉 Holiday',
     rotate: 'rotate-[2deg]'
+  },
+  poll: {
+    bg: 'bg-purple-100 dark:bg-purple-200',
+    shadow: 'shadow-purple-200/50',
+    pin: 'bg-purple-600',
+    label: '📊 Poll',
+    rotate: 'rotate-0'
   }
 };
 
 const NoticeBoard = forwardRef(({ userRole }, ref) => {
   const { notices, loading, error, hasMore, refresh, loadMore } = useNotices(10);
+  const { currentUser } = useAuth();
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', message: '', type: 'general' });
+  const [votingId, setVotingId] = useState(null);
 
   useImperativeHandle(ref, () => ({ refresh }));
 
-  const getStickyStyle = (type, index) => {
-    const config = STICKY_CONFIG[type] || STICKY_CONFIG.general;
-    // Alternate rotation for variety
+  const getStickyStyle = (notice, index) => {
+    if (notice.isPoll) return STICKY_CONFIG.poll;
+    const config = STICKY_CONFIG[notice.type] || STICKY_CONFIG.general;
     const rotations = ['rotate-[-1deg]', 'rotate-[1deg]', 'rotate-[-2deg]', 'rotate-[2deg]', 'rotate-0'];
     return { ...config, rotate: rotations[index % rotations.length] };
   };
@@ -85,6 +95,46 @@ const NoticeBoard = forwardRef(({ userRole }, ref) => {
     }
   };
 
+  const handleVote = async (noticeId, optionIndex) => {
+    setVotingId(noticeId);
+    const isRemoving = optionIndex === null;
+    const toastId = toast.loading(isRemoving ? "Removing your vote..." : "Recording your vote...");
+    try {
+      await api.voteOnPoll(noticeId, optionIndex);
+      toast.success(isRemoving ? "Vote removed! 🗳️" : "Vote recorded! 🗳️", { id: toastId });
+      refresh();
+    } catch (error) {
+      toast.error(error || "Failed to vote", { id: toastId });
+    } finally {
+      setVotingId(null);
+    }
+  };
+
+  const getUserVoteIndex = (notice) => {
+    // New format: votes object { [uid]: optionIndex }
+    if (notice.votes && notice.votes[currentUser?.uid] !== undefined) {
+      return notice.votes[currentUser.uid];
+    }
+    // Legacy format (for backward compatibility)
+    if (notice.voters?.includes(currentUser?.uid)) {
+      return -1; // Voted but don't know which option
+    }
+    return null; // Not voted
+  };
+
+  const hasUserVoted = (notice) => {
+    return getUserVoteIndex(notice) !== null;
+  };
+
+  const getTotalVotes = (notice) => {
+    return notice.pollOptions?.reduce((sum, opt) => sum + opt.votes, 0) || 0;
+  };
+
+  const getVotePercentage = (votes, total) => {
+    if (total === 0) return 0;
+    return Math.round((votes / total) * 100);
+  };
+
   return (
     <div className="rounded-xl overflow-hidden">
       {/* Cork Board Header */}
@@ -114,7 +164,6 @@ const NoticeBoard = forwardRef(({ userRole }, ref) => {
             radial-gradient(circle at 20% 30%, rgba(139, 115, 85, 0.3) 0%, transparent 20%),
             radial-gradient(circle at 80% 70%, rgba(139, 115, 85, 0.3) 0%, transparent 20%),
             radial-gradient(circle at 50% 50%, rgba(139, 115, 85, 0.2) 0%, transparent 30%),
-            url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E"),
             linear-gradient(135deg, #c4a574 0%, #a68a5b 50%, #8b7355 100%)
           `
         }}
@@ -144,13 +193,16 @@ const NoticeBoard = forwardRef(({ userRole }, ref) => {
             {/* Sticky Notes Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {notices.map((notice, index) => {
-                const stickyStyle = getStickyStyle(notice.type, index);
+                const stickyStyle = getStickyStyle(notice, index);
                 const isEditing = editingId === notice.id;
+                const isPoll = notice.isPoll;
+                const voted = hasUserVoted(notice);
+                const totalVotes = getTotalVotes(notice);
 
                 return (
                   <div
                     key={notice.id}
-                    className={`relative ${stickyStyle.rotate} hover:rotate-0 transition-transform duration-300 group`}
+                    className={`relative ${stickyStyle.rotate} hover:rotate-0 transition-transform duration-300 group ${isPoll ? 'md:col-span-2 lg:col-span-1' : ''}`}
                   >
                     {/* Pushpin */}
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
@@ -184,14 +236,14 @@ const NoticeBoard = forwardRef(({ userRole }, ref) => {
                             maxLength={1000}
                           />
                           <div className="flex gap-2 flex-wrap">
-                            {Object.entries(STICKY_CONFIG).map(([key, config]) => (
+                            {Object.entries(STICKY_CONFIG).filter(([key]) => key !== 'poll').map(([key, config]) => (
                               <button
                                 key={key}
                                 type="button"
                                 onClick={() => setEditForm({ ...editForm, type: key })}
                                 className={`px-2 py-1 rounded text-xs font-medium transition ${editForm.type === key
-                                    ? `${config.bg} ring-2 ring-gray-400`
-                                    : 'bg-white/50 hover:bg-white/70'
+                                  ? `${config.bg} ring-2 ring-gray-400`
+                                  : 'bg-white/50 hover:bg-white/70'
                                   }`}
                               >
                                 {config.label}
@@ -246,14 +298,77 @@ const NoticeBoard = forwardRef(({ userRole }, ref) => {
                           </span>
 
                           {/* Title */}
-                          <h4 className="text-base font-bold text-gray-800 mb-2 leading-tight font-handwriting">
+                          <h4 className="text-base font-bold text-gray-800 mb-2 leading-tight">
                             {notice.title}
                           </h4>
 
-                          {/* Message */}
-                          <p className="text-gray-700 text-sm leading-relaxed flex-1 line-clamp-4">
-                            {notice.message}
-                          </p>
+                          {/* Message or Poll */}
+                          {isPoll ? (
+                            <div className="flex-1 space-y-2">
+                              <p className="text-gray-700 text-sm mb-3">{notice.message}</p>
+
+                              {notice.pollOptions?.map((option, optIndex) => {
+                                const percentage = getVotePercentage(option.votes, totalVotes);
+                                const userVoteIndex = getUserVoteIndex(notice);
+                                const isUserSelection = userVoteIndex === optIndex;
+                                const isWinning = voted && option.votes === Math.max(...notice.pollOptions.map(o => o.votes)) && option.votes > 0;
+
+                                return (
+                                  <button
+                                    key={optIndex}
+                                    onClick={() => {
+                                      if (votingId === notice.id) return;
+                                      if (isUserSelection) {
+                                        handleVote(notice.id, null); // Remove vote
+                                      } else {
+                                        handleVote(notice.id, optIndex); // New vote or change vote
+                                      }
+                                    }}
+                                    disabled={votingId === notice.id}
+                                    style={{ border: isUserSelection ? '2px solid #7c3aed' : '2px solid #9ca3af' }}
+                                    className={`w-full relative overflow-hidden rounded-lg transition-all bg-white ${isUserSelection
+                                        ? 'cursor-pointer hover:border-purple-600'
+                                        : 'cursor-pointer hover:border-purple-500 hover:shadow-md'
+                                      }`}
+                                  >
+                                    {/* Progress bar background */}
+                                    {voted && (
+                                      <div
+                                        className={`absolute inset-0 ${isUserSelection ? 'bg-purple-200' : isWinning ? 'bg-purple-100' : 'bg-gray-100'} transition-all duration-500`}
+                                        style={{ width: `${percentage}%` }}
+                                      ></div>
+                                    )}
+
+                                    <div className="relative flex items-center justify-between p-2.5">
+                                      <div className="flex items-center gap-2">
+                                        {isUserSelection && (
+                                          <span className="text-purple-600 text-sm">✓</span>
+                                        )}
+                                        <span className={`text-sm font-medium ${isUserSelection ? 'text-purple-800' : 'text-gray-800'}`}>
+                                          {option.text}
+                                        </span>
+                                      </div>
+                                      {voted && (
+                                        <span className={`text-xs font-bold ${isUserSelection ? 'text-purple-700' : isWinning ? 'text-purple-600' : 'text-gray-500'}`}>
+                                          {percentage}%
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+
+                              <p className="text-xs text-gray-500 text-center mt-2">
+                                {voted
+                                  ? `${totalVotes} vote${totalVotes !== 1 ? 's' : ''} • Click your choice to change`
+                                  : 'Click to vote'}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-gray-700 text-sm leading-relaxed flex-1 line-clamp-4">
+                              {notice.message}
+                            </p>
+                          )}
 
                           {/* Footer */}
                           <div className="mt-3 pt-2 border-t border-black/10 flex items-center justify-between">

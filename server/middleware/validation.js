@@ -47,8 +47,8 @@ const validateNotice = [
 
     body('message')
         .trim()
-        .notEmpty().withMessage('Message is required')
-        .isLength({ min: 10, max: 1000 }).withMessage('Message must be between 10 and 1000 characters')
+        .optional({ checkFalsy: true })
+        .isLength({ max: 1000 }).withMessage('Message must be at most 1000 characters')
         .escape(), // Prevent XSS
 
     body('author')
@@ -60,7 +60,16 @@ const validateNotice = [
     body('type')
         .optional()
         .trim()
-        .isIn(['general', 'important', 'urgent', 'holiday']).withMessage('Type must be general, important, urgent, or holiday'),
+        .isIn(['general', 'important', 'urgent', 'holiday', 'poll']).withMessage('Type must be general, important, urgent, holiday, or poll'),
+
+    body('pollOptions')
+        .optional()
+        .isArray({ min: 2, max: 6 }).withMessage('Poll must have 2-6 options'),
+
+    body('pollOptions.*')
+        .optional()
+        .trim()
+        .isLength({ min: 1, max: 100 }).withMessage('Poll option must be between 1 and 100 characters'),
 
     validate
 ];
