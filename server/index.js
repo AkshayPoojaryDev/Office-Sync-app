@@ -37,12 +37,22 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinutes = now.getMinutes();
+  const currentTotalMinutes = currentHour * 60 + currentMinutes;
 
-  // Rule: Close orders at 10:30 AM
-  if (currentHour > 10 || (currentHour === 10 && currentMinutes > 30)) {
+  // Order time slots:
+  // Morning: Before 10:30 AM (0:00 - 10:30)
+  // Evening: 3:00 PM - 5:30 PM (15:00 - 17:30)
+  const morningEnd = 10 * 60 + 30;    // 10:30 AM = 630 minutes
+  const eveningStart = 15 * 60;       // 3:00 PM = 900 minutes
+  const eveningEnd = 17 * 60 + 30;    // 5:30 PM = 1050 minutes
+
+  const isMorningSlot = currentTotalMinutes <= morningEnd;
+  const isEveningSlot = currentTotalMinutes >= eveningStart && currentTotalMinutes <= eveningEnd;
+
+  if (!isMorningSlot && !isEveningSlot) {
     return res.status(400).json({
       success: false,
-      message: "Sorry! Orders closed at 10:30 AM."
+      message: "Sorry! Orders are only available before 10:30 AM and between 4:00 PM - 5:30 PM."
     });
   }
 
