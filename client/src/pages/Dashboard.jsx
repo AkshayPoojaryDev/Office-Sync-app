@@ -2,51 +2,29 @@
 // This file is intentionally large due to comprehensive redesign
 // See DESIGN_NOTES.md for design rationale
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import toast from "react-hot-toast";
 import Layout from "../components/Layout";
 import NoticeBoard from "../components/NoticeBoard";
 import CountdownTimer from "../components/CountdownTimer";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../utils/api";
+import { useStats, useMyOrders } from "../hooks/useMetrics";
 
 function Dashboard() {
   const { currentUser, isAdmin } = useAuth();
-  const [stats, setStats] = useState({ tea: 0, coffee: 0, juice: 0 });
-  const [loading, setLoading] = useState(false);
-  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Use SWR hooks for caching
+  const { stats, loading: statsLoading, mutate: mutateStats } = useStats();
+  const { myOrders, loading: ordersLoading, mutate: mutateOrders } = useMyOrders();
+
+  const [loading, setLoading] = useState(false); // Only for order submission
   const noticeBoardRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
   const [newNotice, setNewNotice] = useState({ title: "", message: "", type: "general" });
   const [submitting, setSubmitting] = useState(false);
   const [isPollMode, setIsPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(['', '']);
-  const [myOrders, setMyOrders] = useState([]);
-
-  useEffect(() => {
-    fetchStats();
-    fetchMyOrders();
-  }, []);
-
-  const fetchMyOrders = async () => {
-    try {
-      const res = await api.getMyOrders();
-      setMyOrders(res.data.orders);
-    } catch (err) {
-      console.error("Failed to fetch user orders", err);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const res = await api.getStats();
-      setStats(res.data);
-    } catch (err) {
-      toast.error("Failed to load today's counts");
-    } finally {
-      setStatsLoading(false);
-    }
-  };
 
   // Helper to check if user entered an order in current slot
   const hasOrderedInCurrentSlot = () => {
@@ -85,17 +63,18 @@ function Dashboard() {
     }
 
     setLoading(true);
-    const previousStats = { ...stats };
-    setStats(prev => ({ ...prev, [type]: prev[type] + 1 }));
+    setLoading(true);
+    // Optimistic UI update logic could go here, but simple revalidate is safer for consistency
     const toastId = toast.loading(`Placing ${type} order...`);
 
     try {
       await api.placeOrder({ userId: currentUser.uid, email: currentUser.email, type });
       toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} order placed successfully`, { id: toastId });
-      fetchStats();
-      fetchMyOrders(); // Refresh orders to disable button
+
+      // Revalidate cache instantly
+      mutateStats();
+      mutateOrders();
     } catch (error) {
-      setStats(previousStats);
       toast.error(error || "Order failed", { id: toastId });
     } finally {
       setLoading(false);

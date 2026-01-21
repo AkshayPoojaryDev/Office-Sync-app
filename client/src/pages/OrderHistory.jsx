@@ -4,36 +4,24 @@ import { useAuth } from "../contexts/AuthContext";
 import { api } from "../utils/api";
 import toast from "react-hot-toast";
 import Layout from "../components/Layout";
+import { useUserStats } from "../hooks/useMetrics";
 
 export default function OrderHistory() {
     const { currentUser } = useAuth();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
-    const [stats, setStats] = useState({ total: 0, tea: 0, coffee: 0, juice: 0 });
+
+    // Use cached stats
+    const { orderStats: stats } = useUserStats(currentUser?.uid);
+
     const [offset, setOffset] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const LIMIT = 20;
 
     useEffect(() => {
-        fetchStats();
         fetchOrders(true); // Initial fetch
     }, []);
-
-    const fetchStats = async () => {
-        try {
-            const response = await api.getUserStats(currentUser.uid);
-            if (response.data.success) {
-                const { totalOrders, typeCounts } = response.data.stats;
-                setStats({
-                    total: totalOrders,
-                    ...typeCounts
-                });
-            }
-        } catch (error) {
-            console.error("Failed to load stats", error);
-        }
-    };
 
     const fetchOrders = async (reset = false) => {
         try {
@@ -112,19 +100,19 @@ export default function OrderHistory() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Orders</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.totalOrders}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Tea Orders</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.tea}</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.typeCounts?.tea || 0}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Coffee Orders</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.coffee}</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.typeCounts?.coffee || 0}</p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Juice Orders</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.juice}</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.typeCounts?.juice || 0}</p>
                 </div>
             </div>
 

@@ -5,54 +5,42 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../utils/api";
 import Layout from "../components/Layout";
+import { useUserStats } from "../hooks/useMetrics";
 
 export default function Profile() {
     const { currentUser } = useAuth();
     const [userRole, setUserRole] = useState('user');
-    const [orderStats, setOrderStats] = useState({ total: 0, tea: 0, coffee: 0, juice: 0, favorite: null });
-    const [loading, setLoading] = useState(true);
+    const { orderStats, loading } = useUserStats(currentUser?.uid);
 
     const displayName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
     const email = currentUser?.email || '';
 
     useEffect(() => {
-        const fetchData = async () => {
+        const checkRole = async () => {
             try {
-                // Check if user is admin
-                try {
-                    await api.getAdminStats();
-                    setUserRole('admin');
-                } catch {
-                    setUserRole('user');
-                }
-
-                // Fetch order stats directly from optimized endpoint
-                if (currentUser?.uid) {
-                    const response = await api.getUserStats(currentUser.uid);
-                    if (response.data.success) {
-                        const { totalOrders, typeCounts, favoriteBeverage } = response.data.stats;
-
-                        setOrderStats({
-                            total: totalOrders,
-                            tea: typeCounts.tea,
-                            coffee: typeCounts.coffee,
-                            juice: typeCounts.juice,
-                            favorite: favoriteBeverage === 'None' ? null : favoriteBeverage.toLowerCase()
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching profile data:', error);
-            } finally {
-                setLoading(false);
+                // Check if user is admin (still manual check, could be cached but role rarely changes)
+                await api.getAdminStats();
+                setUserRole('admin');
+            } catch {
+                setUserRole('user');
             }
         };
 
-        fetchData();
+        if (currentUser) {
+            checkRole();
+        }
     }, [currentUser]);
 
+    const formattedStats = {
+        total: orderStats.totalOrders,
+        tea: orderStats.typeCounts?.tea || 0,
+        coffee: orderStats.typeCounts?.coffee || 0,
+        juice: orderStats.typeCounts?.juice || 0,
+        favorite: orderStats.favoriteBeverage === 'None' ? null : orderStats.favoriteBeverage?.toLowerCase()
+    };
+
     const getFavoriteIcon = () => {
-        switch (orderStats.favorite) {
+        switch (formattedStats.favorite) {
             case 'tea': return '🫖';
             case 'coffee': return '☕';
             case 'juice': return '🧃';
@@ -183,34 +171,34 @@ export default function Profile() {
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                                     <span className="text-sm text-gray-600 dark:text-gray-400">Total Orders</span>
-                                    <span className="text-lg font-bold text-gray-900 dark:text-white">{orderStats.total}</span>
+                                    <span className="text-lg font-bold text-gray-900 dark:text-white">{formattedStats.total}</span>
                                 </div>
                                 <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                                     <span className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">🫖 Tea</span>
-                                    <span className="text-lg font-bold text-blue-700 dark:text-blue-300">{orderStats.tea}</span>
+                                    <span className="text-lg font-bold text-blue-700 dark:text-blue-300">{formattedStats.tea}</span>
                                 </div>
                                 <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                                     <span className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">☕ Coffee</span>
-                                    <span className="text-lg font-bold text-amber-700 dark:text-amber-300">{orderStats.coffee}</span>
+                                    <span className="text-lg font-bold text-amber-700 dark:text-amber-300">{formattedStats.coffee}</span>
                                 </div>
                                 <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                                     <span className="text-sm text-orange-600 dark:text-orange-400 flex items-center gap-2">🧃 Juice</span>
-                                    <span className="text-lg font-bold text-orange-700 dark:text-orange-300">{orderStats.juice}</span>
+                                    <span className="text-lg font-bold text-orange-700 dark:text-orange-300">{formattedStats.juice}</span>
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* Favorite Beverage Card */}
-                    {!loading && orderStats.favorite && (
+                    {!loading && formattedStats.favorite && (
                         <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-5 text-white shadow-lg">
                             <p className="text-purple-100 text-xs font-medium uppercase tracking-wider mb-2">Your Favorite</p>
                             <div className="flex items-center gap-3">
                                 <span className="text-4xl">{getFavoriteIcon()}</span>
                                 <div>
-                                    <p className="text-xl font-bold capitalize">{orderStats.favorite}</p>
+                                    <p className="text-xl font-bold capitalize">{formattedStats.favorite}</p>
                                     <p className="text-purple-200 text-sm">
-                                        {orderStats[orderStats.favorite]} orders total
+                                        {formattedStats[formattedStats.favorite]} orders total
                                     </p>
                                 </div>
                             </div>
