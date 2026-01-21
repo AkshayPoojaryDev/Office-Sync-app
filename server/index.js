@@ -571,19 +571,21 @@ app.get('/api/admin/stats', verifyToken, requireAdmin, async (req, res) => {
       dates.push(date.toISOString().split('T')[0]);
     }
 
-    // Create parallel fetch promises with projection (only needed fields)
-    const promises = dates.map(dateStr =>
-      db.collection('daily_stats')
-        .doc(dateStr)
-        .select('tea', 'coffee', 'juice') // OPTIMIZATION: Don't load the massive 'orders' array
-        .get()
-    );
+    // Use 'in' query to fetch all 7 days in parallel with projection
+    // This is much faster and uses less bandwidth than fetching full docs
+    const snapshot = await db.collection('daily_stats')
+      .where(admin.firestore.FieldPath.documentId(), 'in', dates)
+      .select('tea', 'coffee', 'juice')
+      .get();
 
-    const snapshots = await Promise.all(promises);
+    // Map results by ID for O(1) lookup
+    const docsMap = {};
+    snapshot.forEach(doc => {
+      docsMap[doc.id] = doc.data();
+    });
 
-    const stats = snapshots.map((doc, index) => {
-      const dateStr = dates[index];
-      const data = doc.exists ? doc.data() : {};
+    const stats = dates.map(dateStr => {
+      const data = docsMap[dateStr] || {};
       const tea = data.tea || 0;
       const coffee = data.coffee || 0;
       const juice = data.juice || 0;
