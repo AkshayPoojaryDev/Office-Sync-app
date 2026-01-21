@@ -17,7 +17,6 @@ client/build/
 # Prevents your Admin Key from being hacked
 **/serviceAccountKey.json
 server/serviceAccountKey.json
-firebase.js 
 
 # --- System Files ---
 .DS_Store
