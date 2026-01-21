@@ -12,6 +12,15 @@ import { api } from "../utils/api";
 
 function Dashboard() {
   const { currentUser, isAdmin } = useAuth();
+  const [stats, setStats] = useState({ tea: 0, coffee: 0, juice: 0 });
+  const [loading, setLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const noticeBoardRef = useRef(null);
+  const [showForm, setShowForm] = useState(false);
+  const [newNotice, setNewNotice] = useState({ title: "", message: "", type: "general" });
+  const [submitting, setSubmitting] = useState(false);
+  const [isPollMode, setIsPollMode] = useState(false);
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const [myOrders, setMyOrders] = useState([]);
 
   useEffect(() => {
