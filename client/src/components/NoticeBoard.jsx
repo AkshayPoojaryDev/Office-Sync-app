@@ -45,7 +45,7 @@ const STICKY_CONFIG = {
 };
 
 const NoticeBoard = forwardRef((props, ref) => {
-  const { notices, loading, error, hasMore, refresh, loadMore } = useNotices(10);
+  const { notices, loading, error, hasMore, refresh, loadMore, updateNotice } = useNotices(10);
   const { currentUser, isAdmin } = useAuth();
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', message: '', type: 'general' });

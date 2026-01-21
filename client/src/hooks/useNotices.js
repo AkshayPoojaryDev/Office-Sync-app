@@ -68,6 +68,10 @@ export function useNotices(initialLimit = 5) {
         };
     }, [fetchNotices]);
 
+    const updateNotice = useCallback((id, updater) => {
+        setNotices(prev => prev.map(n => n.id === id ? (typeof updater === 'function' ? updater(n) : updater) : n));
+    }, []);
+
     return {
         notices,
         loading,
@@ -75,5 +79,7 @@ export function useNotices(initialLimit = 5) {
         hasMore,
         refresh,
         loadMore,
+        updateNotice, // Exported for optimistic updates
+        setNotices // Exported if needed for other manipulations
     };
 }
