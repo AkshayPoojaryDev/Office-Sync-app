@@ -24,7 +24,18 @@ function PrivateRoute({ children }) {
   return currentUser ? children : <Navigate to="/" />;
 }
 
+// Public Route: Redirects to dashboard if user is already logged in
+function PublicRoute({ children }) {
+  const { currentUser } = useAuth();
+  return currentUser ? <Navigate to="/dashboard" /> : children;
+}
+
 function App() {
+  // DEBUG: Check for config presence
+  if (!import.meta.env.VITE_FIREBASE_API_KEY) {
+    console.error("CRITICAL: VITE_FIREBASE_API_KEY is missing! Auth will not persist.");
+  }
+
   return (
     <ErrorBoundary>
       <Router>
@@ -32,7 +43,14 @@ function App() {
           <ToastProvider />
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<Login />} />
+              <Route
+                path="/"
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                }
+              />
 
               {/* Protected Routes */}
               <Route

@@ -1,12 +1,12 @@
-// client/src/pages/Login.jsx - PROFESSIONAL ENTERPRISE DESIGN
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -17,9 +17,14 @@ function Login() {
     setLoading(true);
 
     try {
+      // Set persistence based on checkbox
+      const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistenceType);
+
       await signInWithEmailAndPassword(auth, email, password);
       navigate("/dashboard");
     } catch (err) {
+      console.error("Login error:", err);
       setError("Invalid credentials. Please check your email and password.");
     } finally {
       setLoading(false);
@@ -145,7 +150,12 @@ function Login() {
 
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-[#486581] border-gray-300 rounded focus:ring-[#486581]" />
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-[#486581] border-gray-300 rounded focus:ring-[#486581]"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
                   <span className="ml-2 text-gray-600">Remember me</span>
                 </label>
                 <a href="#" className="text-[#486581] hover:text-[#334e68] font-semibold transition">

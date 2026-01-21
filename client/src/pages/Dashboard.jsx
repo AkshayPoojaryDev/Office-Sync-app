@@ -12,19 +12,21 @@ import { api } from "../utils/api";
 
 function Dashboard() {
   const { currentUser, isAdmin } = useAuth();
-  const [stats, setStats] = useState({ tea: 0, coffee: 0, juice: 0 });
-  const [loading, setLoading] = useState(false);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const noticeBoardRef = useRef(null);
-  const [showForm, setShowForm] = useState(false);
-  const [newNotice, setNewNotice] = useState({ title: "", message: "", type: "general" });
-  const [submitting, setSubmitting] = useState(false);
-  const [isPollMode, setIsPollMode] = useState(false);
-  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [myOrders, setMyOrders] = useState([]);
 
   useEffect(() => {
     fetchStats();
+    fetchMyOrders();
   }, []);
+
+  const fetchMyOrders = async () => {
+    try {
+      const res = await api.getMyOrders();
+      setMyOrders(res.data.orders);
+    } catch (err) {
+      console.error("Failed to fetch user orders", err);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -37,8 +39,42 @@ function Dashboard() {
     }
   };
 
+  // Helper to check if user entered an order in current slot
+  const hasOrderedInCurrentSlot = () => {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Slot Logic (Sync with Server)
+    const morningEnd = 10 * 60 + 30; // 10:30
+    const eveningStart = 15 * 60;    // 15:00
+    const eveningEnd = 17 * 60 + 30; // 17:30
+
+    let currentSlot = null;
+    if (currentMinutes <= morningEnd) currentSlot = 'morning';
+    else if (currentMinutes >= eveningStart && currentMinutes <= eveningEnd) currentSlot = 'evening';
+
+    if (!currentSlot) return false; // Not in a slot at all
+
+    // Check orders
+    return myOrders.some(order => {
+      const orderDate = new Date(order.timestamp);
+      const orderMinutes = orderDate.getHours() * 60 + orderDate.getMinutes();
+
+      if (currentSlot === 'morning') return orderMinutes <= morningEnd;
+      if (currentSlot === 'evening') return orderMinutes >= eveningStart && orderMinutes <= eveningEnd;
+      return false;
+    });
+  };
+
+  const isOrderDisabled = hasOrderedInCurrentSlot();
+
   const handleOrder = async (type) => {
     if (loading) return;
+    if (isOrderDisabled) {
+      toast.error("You have already placed an order for this slot.");
+      return;
+    }
+
     setLoading(true);
     const previousStats = { ...stats };
     setStats(prev => ({ ...prev, [type]: prev[type] + 1 }));
@@ -48,6 +84,7 @@ function Dashboard() {
       await api.placeOrder({ userId: currentUser.uid, email: currentUser.email, type });
       toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} order placed successfully`, { id: toastId });
       fetchStats();
+      fetchMyOrders(); // Refresh orders to disable button
     } catch (error) {
       setStats(previousStats);
       toast.error(error || "Order failed", { id: toastId });
@@ -144,13 +181,13 @@ function Dashboard() {
             </div>
             <button
               onClick={() => handleOrder(bev.type)}
-              disabled={loading || statsLoading}
-              className={`w-full text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:translate-y-[-2px] active:translate-y-0 ${bev.type === 'tea' ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200' :
+              disabled={loading || statsLoading || isOrderDisabled}
+              className={`w-full text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:translate-y-[-2px] active:translate-y-0 disabled:transform-none ${bev.type === 'tea' ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200' :
                 bev.type === 'coffee' ? 'bg-amber-600 hover:bg-amber-700 hover:shadow-lg hover:shadow-amber-200' :
                   'bg-orange-600 hover:bg-orange-700 hover:shadow-lg hover:shadow-orange-200'
                 }`}
             >
-              Order {bev.label}
+              {isOrderDisabled ? 'Already Ordered' : `Order ${bev.label}`}
             </button>
           </div>
         ))}

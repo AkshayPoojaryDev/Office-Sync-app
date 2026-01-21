@@ -85,6 +85,29 @@ app.use('/api', (req, res, next) => {
   requireDb(req, res, next);
 });
 
+// Route: Get User's Orders for Today (to check limits)
+app.get('/api/user/orders', verifyToken, requireDb, async (req, res) => {
+  const { uid } = req.user;
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const dailyStatsRef = db.collection('daily_stats').doc(today);
+    const doc = await dailyStatsRef.get();
+
+    if (!doc.exists) {
+      return res.json({ orders: [] });
+    }
+
+    const data = doc.data();
+    const userOrders = (data.orders || []).filter(o => o.userId === uid);
+
+    res.json({ orders: userOrders });
+  } catch (error) {
+    console.error("Fetch user orders error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch orders" });
+  }
+});
+
+
 // Route: Place an Order (Protected + Rate Limited + Validated)
 app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res) => {
   const { type } = req.body;
@@ -165,37 +188,7 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
       });
 
       if (existingOrderIndex !== -1) {
-        // Update existing order
-        const oldType = orders[existingOrderIndex].type;
-
-        // If swapping types (e.g. tea -> coffee)
-        if (oldType !== type) {
-          t.update(dailyStatsRef, {
-            [oldType]: admin.firestore.FieldValue.increment(-1),
-            [type]: admin.firestore.FieldValue.increment(1),
-            orders: orders.map((o, index) => {
-              if (index === existingOrderIndex) {
-                return { ...o, type, timestamp: new Date().toISOString() };
-              }
-              return o;
-            }),
-            lastUpdated: new Date().toISOString()
-          });
-          message = `Updated order to ${type}!`; // Signal update to client
-        } else {
-          // Same type, just update timestamp maybe? Or do nothing. 
-          // Let's just update timestamp to show "latest" activity
-          t.update(dailyStatsRef, {
-            orders: orders.map((o, index) => {
-              if (index === existingOrderIndex) {
-                return { ...o, timestamp: new Date().toISOString() };
-              }
-              return o;
-            }),
-            lastUpdated: new Date().toISOString()
-          });
-          message = `Order updated!`;
-        }
+        throw new Error("ALREADY_ORDERED");
       } else {
         // New order for this slot
         t.update(dailyStatsRef, {
@@ -215,6 +208,12 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
     res.status(200).json({ success: true, message });
 
   } catch (error) {
+    if (error.message === "ALREADY_ORDERED") {
+      return res.status(400).json({
+        success: false,
+        message: "You have already placed an order for this slot."
+      });
+    }
     console.error("Order failed:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }

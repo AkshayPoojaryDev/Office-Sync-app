@@ -78,6 +78,9 @@ export const api = {
     getUserStats: (userId) =>
         apiClient.get(`/api/users/${userId}/stats`),
 
+    // This new method fetches orders for the currently authenticated user
+    getMyOrders: () => apiClient.get('/api/user/orders'),
+
     // Notice endpoints
     getNotices: (params = {}) =>
         apiClient.get('/api/notices', { params }),
