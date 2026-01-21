@@ -9,6 +9,7 @@ export default function AdminDashboard() {
     const { currentUser } = useAuth();
     const [stats, setStats] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [resetting, setResetting] = useState(false);
 
     useEffect(() => {
         fetchAdminStats();
@@ -30,6 +31,22 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleResetStats = async () => {
+        if (!window.confirm("Are you sure you want to reset today's stats to zero? This cannot be undone.")) {
+            return;
+        }
+        setResetting(true);
+        try {
+            await api.resetTodayStats();
+            toast.success("Today's stats have been reset to zero!");
+            fetchAdminStats(); // Refresh the data
+        } catch (error) {
+            toast.error("Failed to reset stats: " + error);
+        } finally {
+            setResetting(false);
+        }
+    };
+
     const totals = stats.reduce((acc, day) => ({
         tea: acc.tea + day.tea,
         coffee: acc.coffee + day.coffee,
@@ -42,9 +59,21 @@ export default function AdminDashboard() {
     return (
         <Layout>
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Analytics and insights for the last 7 days</p>
+            <div className="mb-8 flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Analytics and insights for the last 7 days</p>
+                </div>
+                <button
+                    onClick={handleResetStats}
+                    disabled={resetting}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg border border-gray-200 dark:border-slate-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <svg className={`w-4 h-4 ${resetting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {resetting ? 'Resetting...' : 'Reset Today'}
+                </button>
             </div>
 
             {/* Summary Cards */}

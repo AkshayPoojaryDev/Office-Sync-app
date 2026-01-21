@@ -62,10 +62,25 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
     });
   }
 
+  const currentSlot = isMorningSlot ? 'morning' : 'evening';
+
+  // Helper to check if a timestamp falls into the given slot
+  // Note: new Date(isoString).getHours() gives LOCAL time hours
+  const isInSlot = (timestampStr, slot) => {
+    const date = new Date(timestampStr);
+    const hours = date.getHours();
+    const minutes = hours * 60 + date.getMinutes();
+    if (slot === 'morning') return minutes <= morningEnd;
+    if (slot === 'evening') return minutes >= eveningStart && minutes <= eveningEnd;
+    return false;
+  };
+
   // 2. DATABASE LOGIC: Save to Firestore
   try {
     const today = new Date().toISOString().split('T')[0];
     const dailyStatsRef = db.collection('daily_stats').doc(today);
+
+    let message = `${type} ordered!`;
 
     // Run a Transaction to ensure counts are accurate
     await db.runTransaction(async (t) => {
@@ -73,33 +88,102 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
 
       if (!doc.exists) {
         t.set(dailyStatsRef, {
-          tea: 0,
-          coffee: 0,
-          juice: 0,
-          orders: [],
+          tea: type === 'tea' ? 1 : 0,
+          coffee: type === 'coffee' ? 1 : 0,
+          juice: type === 'juice' ? 1 : 0,
+          orders: [{
+            userId: uid,
+            email,
+            userName: displayName || email,
+            type,
+            timestamp: new Date().toISOString()
+          }],
+          lastUpdated: new Date().toISOString()
+        });
+        return;
+      }
+
+      const data = doc.data();
+      const orders = data.orders || [];
+
+      // Check if user already ordered in this slot
+      const existingOrderIndex = orders.findIndex(o => {
+        const isUser = o.userId === uid;
+        const inSlot = isInSlot(o.timestamp, currentSlot);
+        return isUser && inSlot;
+      });
+
+      if (existingOrderIndex !== -1) {
+        // Update existing order
+        const oldType = orders[existingOrderIndex].type;
+
+        // If swapping types (e.g. tea -> coffee)
+        if (oldType !== type) {
+          t.update(dailyStatsRef, {
+            [oldType]: admin.firestore.FieldValue.increment(-1),
+            [type]: admin.firestore.FieldValue.increment(1),
+            orders: orders.map((o, index) => {
+              if (index === existingOrderIndex) {
+                return { ...o, type, timestamp: new Date().toISOString() };
+              }
+              return o;
+            }),
+            lastUpdated: new Date().toISOString()
+          });
+          message = `Updated order to ${type}!`; // Signal update to client
+        } else {
+          // Same type, just update timestamp maybe? Or do nothing. 
+          // Let's just update timestamp to show "latest" activity
+          t.update(dailyStatsRef, {
+            orders: orders.map((o, index) => {
+              if (index === existingOrderIndex) {
+                return { ...o, timestamp: new Date().toISOString() };
+              }
+              return o;
+            }),
+            lastUpdated: new Date().toISOString()
+          });
+          message = `Order updated!`;
+        }
+      } else {
+        // New order for this slot
+        t.update(dailyStatsRef, {
+          [type]: admin.firestore.FieldValue.increment(1),
+          orders: admin.firestore.FieldValue.arrayUnion({
+            userId: uid,
+            email,
+            userName: displayName || email,
+            type,
+            timestamp: new Date().toISOString()
+          }),
           lastUpdated: new Date().toISOString()
         });
       }
-
-      // Increment the counter and add order
-      t.update(dailyStatsRef, {
-        [type]: admin.firestore.FieldValue.increment(1),
-        orders: admin.firestore.FieldValue.arrayUnion({
-          userId: uid,
-          email,
-          userName: displayName || email,
-          type,
-          timestamp: new Date().toISOString()
-        }),
-        lastUpdated: new Date().toISOString()
-      });
     });
 
-    res.status(200).json({ success: true, message: `${type} ordered!` });
+    res.status(200).json({ success: true, message });
 
   } catch (error) {
     console.error("Order failed:", error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// Route: Reset Today's Stats (Admin Only)
+app.delete('/api/stats/reset', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    await db.collection('daily_stats').doc(today).set({
+      tea: 0,
+      coffee: 0,
+      juice: 0,
+      orders: [],
+      lastUpdated: new Date().toISOString()
+    });
+    res.status(200).json({ success: true, message: "Stats reset to zero!" });
+  } catch (error) {
+    console.error("Reset failed:", error);
+    res.status(500).json({ success: false, message: "Failed to reset stats" });
   }
 });
 

@@ -98,6 +98,9 @@ export const api = {
     // Admin endpoints
     getAdminStats: () =>
         apiClient.get('/api/admin/stats'),
+
+    resetTodayStats: () =>
+        apiClient.delete('/api/stats/reset'),
 };
 
 export default apiClient;
