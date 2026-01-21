@@ -11,7 +11,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { api } from "../utils/api";
 
 function Dashboard() {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const [stats, setStats] = useState({ tea: 0, coffee: 0, juice: 0 });
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -19,23 +19,12 @@ function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [newNotice, setNewNotice] = useState({ title: "", message: "", type: "general" });
   const [submitting, setSubmitting] = useState(false);
-  const [userRole, setUserRole] = useState('user');
   const [isPollMode, setIsPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(['', '']);
 
   useEffect(() => {
     fetchStats();
-    checkRole();
   }, []);
-
-  const checkRole = async () => {
-    try {
-      const res = await api.getUserRole();
-      setUserRole(res.data.role || 'user');
-    } catch {
-      setUserRole('user');
-    }
-  };
 
   const fetchStats = async () => {
     try {
@@ -171,7 +160,7 @@ function Dashboard() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-900">Announcements</h2>
-          {userRole === 'admin' && (
+          {isAdmin && (
             <button
               onClick={() => setShowForm(!showForm)}
               className="inline-flex items-center px-4 py-2 bg-[#486581] hover:bg-[#334e68] text-white font-medium rounded-lg transition-colors duration-200"
@@ -185,7 +174,7 @@ function Dashboard() {
         </div>
 
         {/* Admin Form */}
-        {showForm && userRole === 'admin' && (
+        {showForm && isAdmin && (
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -333,7 +322,7 @@ function Dashboard() {
         )}
       </div>
 
-      <NoticeBoard ref={noticeBoardRef} userRole={userRole} />
+      <NoticeBoard ref={noticeBoardRef} />
     </Layout>
   );
 }

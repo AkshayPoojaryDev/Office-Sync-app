@@ -44,9 +44,9 @@ const STICKY_CONFIG = {
   }
 };
 
-const NoticeBoard = forwardRef(({ userRole }, ref) => {
+const NoticeBoard = forwardRef((props, ref) => {
   const { notices, loading, error, hasMore, refresh, loadMore } = useNotices(10);
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', message: '', type: 'general' });
   const [votingId, setVotingId] = useState(null);
@@ -269,7 +269,7 @@ const NoticeBoard = forwardRef(({ userRole }, ref) => {
                         // View Mode
                         <>
                           {/* Admin Controls */}
-                          {userRole === 'admin' && (
+                          {isAdmin && (
                             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                               <button
                                 onClick={() => handleEdit(notice)}
@@ -327,8 +327,8 @@ const NoticeBoard = forwardRef(({ userRole }, ref) => {
                                     disabled={votingId === notice.id}
                                     style={{ border: isUserSelection ? '2px solid #7c3aed' : '2px solid #9ca3af' }}
                                     className={`w-full relative overflow-hidden rounded-lg transition-all bg-white ${isUserSelection
-                                        ? 'cursor-pointer hover:border-purple-600'
-                                        : 'cursor-pointer hover:border-purple-500 hover:shadow-md'
+                                      ? 'cursor-pointer hover:border-purple-600'
+                                      : 'cursor-pointer hover:border-purple-500 hover:shadow-md'
                                       }`}
                                   >
                                     {/* Progress bar background */}
