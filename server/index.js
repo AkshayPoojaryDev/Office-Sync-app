@@ -11,23 +11,31 @@ const { validateOrder, validateNotice, validateNoticeUpdate, validateNoticeId } 
 const { orderLimiter, noticeLimiter, generalLimiter } = require('./middleware/rateLimit');
 
 // 1. Initialize Firebase (supports both file and env variable)
-let serviceAccount;
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-  // Vercel: Parse JSON from environment variable
-  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-} else {
-  // Local: Load from file
-  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './serviceAccountKey.json';
-  serviceAccount = require(serviceAccountPath);
+let db;
+let firebaseError = null;
+
+try {
+  let serviceAccount;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Vercel: Parse JSON from environment variable
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else {
+    // Local: Load from file
+    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './serviceAccountKey.json';
+    serviceAccount = require(serviceAccountPath);
+  }
+
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  }
+  db = admin.firestore();
+} catch (error) {
+  console.error('Firebase initialization error:', error.message);
+  firebaseError = error.message;
 }
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-}
-
-const db = admin.firestore();
 const app = express();
 
 // 2. Security & Middleware
@@ -43,6 +51,18 @@ app.use(express.json()); // Parse JSON
 app.use(generalLimiter); // General rate limiting
 
 // --- API ROUTES ---
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: firebaseError ? 'error' : 'ok',
+    firebase: firebaseError || 'connected',
+    env: {
+      hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+      nodeEnv: process.env.NODE_ENV
+    }
+  });
+});
 
 // Route: Place an Order (Protected + Rate Limited + Validated)
 app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res) => {
