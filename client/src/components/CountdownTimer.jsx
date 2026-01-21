@@ -1,12 +1,13 @@
 // client/src/components/CountdownTimer.jsx
 // Real-time countdown for order windows (morning & evening slots)
-import { useState, useEffect } from 'react';
+// Optimized with React.memo and stable useCallback
+import { useState, useEffect, useCallback, memo } from 'react';
 
 function CountdownTimer() {
     const [timeInfo, setTimeInfo] = useState({
         timeLeft: { hours: 0, minutes: 0, seconds: 0 },
-        currentSlot: null, // 'morning', 'evening', or null
-        nextSlot: null,    // 'morning', 'evening', or null
+        currentSlot: null,
+        nextSlot: null,
         isOpen: false,
         urgency: 'normal'
     });
@@ -17,10 +18,9 @@ function CountdownTimer() {
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
             const currentSeconds = now.getSeconds();
 
-            // Time slots in minutes from midnight
-            const morningEnd = 10 * 60 + 30;      // 10:30 AM = 630 min
-            const eveningStart = 15 * 60;          // 3:00 PM = 900 min
-            const eveningEnd = 17 * 60 + 30;       // 5:30 PM = 1050 min
+            const morningEnd = 10 * 60 + 30;
+            const eveningStart = 15 * 60;
+            const eveningEnd = 17 * 60 + 30;
 
             let isOpen = false;
             let currentSlot = null;
@@ -29,28 +29,23 @@ function CountdownTimer() {
             let urgency = 'normal';
 
             if (currentMinutes <= morningEnd) {
-                // Morning slot is open
                 isOpen = true;
                 currentSlot = 'morning';
                 targetMinutes = morningEnd;
             } else if (currentMinutes >= eveningStart && currentMinutes <= eveningEnd) {
-                // Evening slot is open
                 isOpen = true;
                 currentSlot = 'evening';
                 targetMinutes = eveningEnd;
             } else if (currentMinutes > morningEnd && currentMinutes < eveningStart) {
-                // Between slots - show countdown to evening
                 isOpen = false;
                 nextSlot = 'evening';
                 targetMinutes = eveningStart;
             } else {
-                // After evening slot - show next morning
                 isOpen = false;
                 nextSlot = 'morning';
-                targetMinutes = 24 * 60 + morningEnd; // Next day
+                targetMinutes = 24 * 60 + morningEnd;
             }
 
-            // Calculate time difference
             let diffMinutes = targetMinutes - currentMinutes;
             if (diffMinutes < 0) diffMinutes += 24 * 60;
 
@@ -59,19 +54,12 @@ function CountdownTimer() {
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
 
-            // Set urgency for open slots
             if (isOpen) {
                 if (diffMinutes <= 10) urgency = 'critical';
                 else if (diffMinutes <= 30) urgency = 'warning';
             }
 
-            return {
-                timeLeft: { hours, minutes, seconds },
-                currentSlot,
-                nextSlot,
-                isOpen,
-                urgency
-            };
+            return { timeLeft: { hours, minutes, seconds }, currentSlot, nextSlot, isOpen, urgency };
         };
 
         setTimeInfo(calculateTimeInfo());
@@ -79,25 +67,25 @@ function CountdownTimer() {
         return () => clearInterval(timer);
     }, []);
 
-    const formatNumber = (num) => String(Math.max(0, num)).padStart(2, '0');
+    const formatNumber = useCallback((num) => String(Math.max(0, num)).padStart(2, '0'), []);
 
-    const getContainerClasses = () => {
+    const getContainerClasses = useCallback(() => {
         if (!timeInfo.isOpen) return 'bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-600 dark:text-gray-300';
         switch (timeInfo.urgency) {
             case 'critical': return 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 animate-pulse';
             case 'warning': return 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300';
             default: return 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300';
         }
-    };
+    }, [timeInfo.isOpen, timeInfo.urgency]);
 
-    const getIconColor = () => {
+    const getIconColor = useCallback(() => {
         if (!timeInfo.isOpen) return 'text-gray-400';
         switch (timeInfo.urgency) {
             case 'critical': return 'text-red-500';
             case 'warning': return 'text-amber-500';
             default: return 'text-emerald-500';
         }
-    };
+    }, [timeInfo.isOpen, timeInfo.urgency]);
 
     const { hours, minutes, seconds } = timeInfo.timeLeft;
 
@@ -132,4 +120,4 @@ function CountdownTimer() {
     );
 }
 
-export default CountdownTimer;
+export default memo(CountdownTimer);

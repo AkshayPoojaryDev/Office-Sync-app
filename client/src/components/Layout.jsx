@@ -2,29 +2,15 @@
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { auth } from "../firebase";
-import { useState, useEffect } from "react";
-import { api } from "../utils/api";
+import { useState } from "react";
 import { useDarkMode } from "../hooks/useDarkMode";
 
 export default function Layout({ children }) {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [userRole, setUserRole] = useState('user');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isDarkMode, toggleDarkMode } = useDarkMode();
-
-  useEffect(() => {
-    const checkRole = async () => {
-      try {
-        await api.getAdminStats();
-        setUserRole('admin');
-      } catch {
-        setUserRole('user');
-      }
-    };
-    checkRole();
-  }, [currentUser]);
 
   const handleLogout = async () => {
     try {
@@ -67,7 +53,7 @@ export default function Layout({ children }) {
     }
   ];
 
-  if (userRole === 'admin') {
+  if (isAdmin) {
     navigation.push({
       name: 'Admin Panel',
       path: '/admin',

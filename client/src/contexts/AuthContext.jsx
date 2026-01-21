@@ -1,5 +1,5 @@
 // client/src/contexts/AuthContext.jsx
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { api } from "../utils/api";
@@ -12,10 +12,10 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null); // Cache role in context
+  const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user role - cached at context level so it only runs once
+  // Fetch user role - cached at context level
   const fetchUserRole = useCallback(async () => {
     if (!currentUser) {
       setUserRole(null);
@@ -30,14 +30,13 @@ export function AuthProvider({ children }) {
   }, [currentUser]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);
     });
     return unsubscribe;
   }, []);
 
-  // Fetch role when user changes
   useEffect(() => {
     if (currentUser) {
       fetchUserRole();
@@ -46,12 +45,13 @@ export function AuthProvider({ children }) {
     }
   }, [currentUser, fetchUserRole]);
 
-  const value = {
+  // Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     currentUser,
     userRole,
     isAdmin: userRole === 'admin',
     refreshRole: fetchUserRole
-  };
+  }), [currentUser, userRole, fetchUserRole]);
 
   return (
     <AuthContext.Provider value={value}>

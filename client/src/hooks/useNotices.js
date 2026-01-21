@@ -1,24 +1,25 @@
 // client/src/hooks/useNotices.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../utils/api';
 
 /**
  * Custom hook for managing notices
  * Handles fetching, pagination, and state management
+ * Optimized with proper cleanup and memoization
  */
 export function useNotices(initialLimit = 5) {
     const [notices, setNotices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [hasMore, setHasMore] = useState(true);
-    const [offset, setOffset] = useState(0);
+    const offsetRef = useRef(0); // Use ref to avoid dependency issues
 
     const fetchNotices = useCallback(async (reset = false) => {
         try {
             setLoading(true);
             setError(null);
 
-            const currentOffset = reset ? 0 : offset;
+            const currentOffset = reset ? 0 : offsetRef.current;
             const response = await api.getNotices({
                 limit: initialLimit,
                 offset: currentOffset
@@ -26,24 +27,22 @@ export function useNotices(initialLimit = 5) {
 
             if (reset) {
                 setNotices(response.data);
-                setOffset(initialLimit);
+                offsetRef.current = initialLimit;
             } else {
                 setNotices(prev => [...prev, ...response.data]);
-                setOffset(prev => prev + initialLimit);
+                offsetRef.current += initialLimit;
             }
 
-            // If we got fewer items than requested, we've reached the end
             setHasMore(response.data.length === initialLimit);
         } catch (err) {
             setError(err);
-            console.error('Error fetching notices:', err);
         } finally {
             setLoading(false);
         }
-    }, [offset, initialLimit]);
+    }, [initialLimit]);
 
     const refresh = useCallback(() => {
-        setOffset(0);
+        offsetRef.current = 0;
         fetchNotices(true);
     }, [fetchNotices]);
 
@@ -54,8 +53,20 @@ export function useNotices(initialLimit = 5) {
     }, [loading, hasMore, fetchNotices]);
 
     useEffect(() => {
-        fetchNotices(true);
-    }, []);
+        let isMounted = true;
+
+        const load = async () => {
+            if (isMounted) {
+                await fetchNotices(true);
+            }
+        };
+
+        load();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [fetchNotices]);
 
     return {
         notices,
