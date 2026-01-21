@@ -101,6 +101,9 @@ export const api = {
 
     resetTodayStats: () =>
         apiClient.delete('/api/stats/reset'),
+
+    getUserRole: () =>
+        apiClient.get('/api/user/role'),
 };
 
 export default apiClient;

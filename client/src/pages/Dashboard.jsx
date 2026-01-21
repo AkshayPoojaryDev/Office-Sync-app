@@ -30,8 +30,8 @@ function Dashboard() {
 
   const checkRole = async () => {
     try {
-      await api.getAdminStats();
-      setUserRole('admin');
+      const res = await api.getUserRole();
+      setUserRole(res.data.role || 'user');
     } catch {
       setUserRole('user');
     }

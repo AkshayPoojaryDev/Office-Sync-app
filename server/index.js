@@ -199,6 +199,24 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
   }
 });
 
+// Route: Check User Role (Protected) - Lightweight admin check
+app.get('/api/user/role', verifyToken, async (req, res) => {
+  try {
+    const { uid, email } = req.user;
+    // Check if user is admin
+    const userDoc = await db.collection('users').doc(uid).get();
+    const isAdmin = userDoc.exists && userDoc.data()?.role === 'admin';
+
+    res.json({
+      success: true,
+      role: isAdmin ? 'admin' : 'user',
+      email
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, role: 'user' });
+  }
+});
+
 // Route: Reset Today's Stats (Admin Only)
 app.delete('/api/stats/reset', verifyToken, requireAdmin, async (req, res) => {
   try {
