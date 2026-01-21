@@ -56,12 +56,33 @@ app.use(generalLimiter); // General rate limiting
 app.get('/api/health', (req, res) => {
   res.json({
     status: firebaseError ? 'error' : 'ok',
-    firebase: firebaseError || 'connected',
+    firebase: firebaseError ? 'disconnected' : 'connected',
+    startTime: new Date().toISOString(),
     env: {
       hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
       nodeEnv: process.env.NODE_ENV
-    }
+    },
+    error: firebaseError
   });
+});
+
+// Middleware to check if Firebase is initialized
+const requireDb = (req, res, next) => {
+  if (!db) {
+    console.error('Database access attempt failed: Firebase not initialized');
+    return res.status(500).json({
+      success: false,
+      message: 'Server configuration error: Database not connected',
+      error: firebaseError
+    });
+  }
+  next();
+};
+
+app.use('/api', (req, res, next) => {
+  // Skip health check from db requirement
+  if (req.path === '/health') return next();
+  requireDb(req, res, next);
 });
 
 // Route: Place an Order (Protected + Rate Limited + Validated)

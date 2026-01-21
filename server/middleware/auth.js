@@ -19,7 +19,17 @@ const verifyToken = async (req, res, next) => {
         const token = authHeader.split('Bearer ')[1];
 
         // Verify the token with Firebase Admin
-        const decodedToken = await admin.auth().verifyIdToken(token);
+        let decodedToken;
+        try {
+            decodedToken = await admin.auth().verifyIdToken(token);
+        } catch (authError) {
+            console.error('Token verification specific error:', authError);
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid or expired token',
+                error: authError.code
+            });
+        }
 
         // Attach user info to request
         req.user = {
@@ -29,34 +39,41 @@ const verifyToken = async (req, res, next) => {
         };
 
         // Fetch user role from Firestore
-        const userDoc = await admin.firestore()
-            .collection('users')
-            .doc(decodedToken.uid)
-            .get();
-
-        if (userDoc.exists) {
-            req.user.role = userDoc.data().role || 'user';
-            req.user.displayName = userDoc.data().displayName;
-        } else {
-            // Create user document if it doesn't exist
-            await admin.firestore()
+        try {
+            const userDoc = await admin.firestore()
                 .collection('users')
                 .doc(decodedToken.uid)
-                .set({
-                    email: decodedToken.email,
-                    role: 'user',
-                    createdAt: new Date().toISOString(),
-                    lastLogin: new Date().toISOString(),
-                });
+                .get();
+
+            if (userDoc.exists) {
+                req.user.role = userDoc.data().role || 'user';
+                req.user.displayName = userDoc.data().displayName;
+            } else {
+                // Create user document if it doesn't exist
+                await admin.firestore()
+                    .collection('users')
+                    .doc(decodedToken.uid)
+                    .set({
+                        email: decodedToken.email,
+                        role: 'user',
+                        createdAt: new Date().toISOString(),
+                        lastLogin: new Date().toISOString(),
+                    });
+                req.user.role = 'user';
+            }
+        } catch (dbError) {
+            console.error('Firestore role fetch error:', dbError);
+            // Fallback to 'user' role if DB fails, so app doesn't crash entirely
+            // This allows basic access even if DB is having issues
             req.user.role = 'user';
         }
 
         next();
     } catch (error) {
-        console.error('Token verification error:', error);
-        return res.status(401).json({
+        console.error('Unexpected auth middleware error:', error);
+        return res.status(500).json({
             success: false,
-            message: 'Invalid or expired token'
+            message: 'Internal authentication error'
         });
     }
 };
