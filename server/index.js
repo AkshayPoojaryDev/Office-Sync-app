@@ -10,12 +10,22 @@ const { verifyToken, requireAdmin, optionalAuth } = require('./middleware/auth')
 const { validateOrder, validateNotice, validateNoticeUpdate, validateNoticeId } = require('./middleware/validation');
 const { orderLimiter, noticeLimiter, generalLimiter } = require('./middleware/rateLimit');
 
-// 1. Initialize Firebase
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './serviceAccountKey.json';
-const serviceAccount = require(serviceAccountPath);
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+// 1. Initialize Firebase (supports both file and env variable)
+let serviceAccount;
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  // Vercel: Parse JSON from environment variable
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} else {
+  // Local: Load from file
+  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './serviceAccountKey.json';
+  serviceAccount = require(serviceAccountPath);
+}
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+}
 
 const db = admin.firestore();
 const app = express();
@@ -539,8 +549,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+// Start server (only in non-serverless environment)
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+// Export for Vercel serverless
+module.exports = app;
