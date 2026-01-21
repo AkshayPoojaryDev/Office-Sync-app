@@ -49,3 +49,32 @@ graph TD
     Client -->|Real-time| DB[(Firestore)]
     Server -->|Admin SDK| DB
     Server -->|Validation| DB
+```
+
+## 🛠️ Deployment
+
+### Prerequisites
+- Node.js (v18+)
+- Firebase Project with Firestore & Auth enabled
+
+### Production Setup
+
+1. **Server**
+   ```bash
+   cd server
+   npm install
+   # Create .env with strictly defined variables
+   npm start
+   ```
+
+2. **Client**
+   ```bash
+   cd client
+   npm install
+   npm run build
+   # Serve the 'dist' folder
+   ```
+
+## 📄 License
+MIT
+

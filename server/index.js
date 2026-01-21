@@ -22,7 +22,13 @@ const app = express();
 
 // 2. Security & Middleware
 app.use(helmet()); // Security headers
-app.use(cors()); // CORS
+// CORS Configuration
+const clientUrl = process.env.CLIENT_URL || '*';
+app.use(cors({
+  origin: clientUrl,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json()); // Parse JSON
 app.use(generalLimiter); // General rate limiting
 
@@ -437,6 +443,16 @@ app.get('/api/admin/stats', verifyToken, requireAdmin, async (req, res) => {
     console.error("Admin stats error:", error);
     res.status(500).json({ error: "Failed to fetch admin stats" });
   }
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'production' ? {} : err.message
+  });
 });
 
 // Start server
