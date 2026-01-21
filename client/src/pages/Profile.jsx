@@ -8,28 +8,17 @@ import Layout from "../components/Layout";
 import { useUserStats } from "../hooks/useMetrics";
 
 export default function Profile() {
-    const { currentUser } = useAuth();
-    const [userRole, setUserRole] = useState('user');
+    const { currentUser, isAdmin } = useAuth();
+    const [userRole, setUserRole] = useState(isAdmin ? 'admin' : 'user');
     const { orderStats, loading } = useUserStats(currentUser?.uid);
 
     const displayName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
     const email = currentUser?.email || '';
 
+    // Update local role state if context updates
     useEffect(() => {
-        const checkRole = async () => {
-            try {
-                // Check if user is admin (still manual check, could be cached but role rarely changes)
-                await api.getAdminStats();
-                setUserRole('admin');
-            } catch {
-                setUserRole('user');
-            }
-        };
-
-        if (currentUser) {
-            checkRole();
-        }
-    }, [currentUser]);
+        setUserRole(isAdmin ? 'admin' : 'user');
+    }, [isAdmin]);
 
     const formattedStats = {
         total: orderStats.totalOrders,

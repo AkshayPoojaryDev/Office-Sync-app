@@ -85,20 +85,23 @@ app.use('/api', (req, res, next) => {
   requireDb(req, res, next);
 });
 
-// Route: Get User's Orders for Today (to check limits)
+// Route: Get User's Orders for Today (Optimized)
 app.get('/api/user/orders', verifyToken, requireDb, async (req, res) => {
   const { uid } = req.user;
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const dailyStatsRef = db.collection('daily_stats').doc(today);
-    const doc = await dailyStatsRef.get();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayISO = today.toISOString();
 
-    if (!doc.exists) {
-      return res.json({ orders: [] });
-    }
+    // PERFORMANCE OPTIMIZATION: Query 'orders' collection directly
+    // This uses an index for O(1) fetch instead of downloading the whole daily stats
+    const snapshot = await db.collection('orders')
+      .where('userId', '==', uid)
+      .where('timestamp', '>=', todayISO)
+      .orderBy('timestamp', 'desc')
+      .get();
 
-    const data = doc.data();
-    const userOrders = (data.orders || []).filter(o => o.userId === uid);
+    const userOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     res.json({ orders: userOrders });
   } catch (error) {
@@ -149,17 +152,43 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
     return false;
   };
 
-  // 2. DATABASE LOGIC: Save to Firestore
+  // 2. DATABASE LOGIC: Save to Firestore (Normalized)
   try {
     const today = new Date().toISOString().split('T')[0];
     const dailyStatsRef = db.collection('daily_stats').doc(today);
+    const ordersRef = db.collection('orders');
 
     let message = `${type} ordered!`;
 
-    // Run a Transaction to ensure counts are accurate
+    // Run a Transaction to ensure counts are accurate and enforce limits
     await db.runTransaction(async (t) => {
+      // Check for existing order in 'orders' collection (Faster check)
+      // We need a composite query or just check today's orders for this user
+      // Since we can't query inside transaction easily for independent collection without correct index setup,
+      // we'll fetch the daily_stats to check the 'orders' array for limit enforcement (Legacy support/simpler)
+      // OR: we query 'orders' collection before transaction.
+
+      // HYBRID APPROACH: Use 'daily_stats' for limit check (since we maintain it)
+      // This keeps strict consistency without needing new indexes immediately for the uniqueness check
       const doc = await t.get(dailyStatsRef);
 
+      let duplicate = false;
+      if (doc.exists) {
+        const data = doc.data();
+        const orders = data.orders || [];
+        const existingOrderIndex = orders.findIndex(o => {
+          const isUser = o.userId === uid;
+          const inSlot = isInSlot(o.timestamp, currentSlot);
+          return isUser && inSlot;
+        });
+        if (existingOrderIndex !== -1) duplicate = true;
+      }
+
+      if (duplicate) {
+        throw new Error("ALREADY_ORDERED");
+      }
+
+      // Perform Updates
       if (!doc.exists) {
         t.set(dailyStatsRef, {
           tea: type === 'tea' ? 1 : 0,
@@ -174,25 +203,10 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
           }],
           lastUpdated: new Date().toISOString()
         });
-        return;
-      }
-
-      const data = doc.data();
-      const orders = data.orders || [];
-
-      // Check if user already ordered in this slot
-      const existingOrderIndex = orders.findIndex(o => {
-        const isUser = o.userId === uid;
-        const inSlot = isInSlot(o.timestamp, currentSlot);
-        return isUser && inSlot;
-      });
-
-      if (existingOrderIndex !== -1) {
-        throw new Error("ALREADY_ORDERED");
       } else {
-        // New order for this slot
         t.update(dailyStatsRef, {
           [type]: admin.firestore.FieldValue.increment(1),
+          // We keep updating this array for Admin Dashboard (so we don't break it)
           orders: admin.firestore.FieldValue.arrayUnion({
             userId: uid,
             email,
@@ -203,6 +217,19 @@ app.post('/api/order', verifyToken, orderLimiter, validateOrder, async (req, res
           lastUpdated: new Date().toISOString()
         });
       }
+
+      // WRITE TO NEW COLLECTION (Normalized)
+      // Ensure we use the exact same timestamp
+      const timestamp = new Date().toISOString();
+      const newOrderDoc = ordersRef.doc(); // Auto-ID
+      t.set(newOrderDoc, {
+        userId: uid,
+        email,
+        userName: displayName || email,
+        type,
+        timestamp,
+        date: today // Helper field
+      });
     });
 
     res.status(200).json({ success: true, message });
@@ -274,7 +301,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // Route: Get User's Order History (Protected)
-// Route: Get User's Order History (Protected) - Paginated
+// Route: Get User's Order History (Normalized & Optimized)
 app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -282,57 +309,40 @@ app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
     const offset = parseInt(req.query.offset) || 0;
     const type = req.query.type || 'all';
 
-    // Users can only view their own orders unless they're admin
+    // Auth check
     if (req.user.uid !== userId && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "You can only view your own orders"
-      });
+      return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
-    // Calculate date 60 days ago for filtering
-    const date = new Date();
-    date.setDate(date.getDate() - 60);
-    const dateString = date.toISOString().split('T')[0];
+    // Build Query on 'orders' collection
+    let query = db.collection('orders')
+      .where('userId', '==', userId)
+      .orderBy('timestamp', 'desc');
 
-    // Get all daily stats documents from the last 60 days
-    // Using where() > dateString avoids the need for a descending index on __name__
-    const statsSnapshot = await db.collection('daily_stats')
-      .where(admin.firestore.FieldPath.documentId(), '>=', dateString)
-      .get();
+    if (type !== 'all') {
+      query = query.where('type', '==', type);
+    }
 
-    let userOrders = [];
-    statsSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      if (data.orders) {
-        let filtered = data.orders.filter(order => order.userId === userId);
+    // Note: 'offset' in Firestore is expensive if done by number. 
+    // Ideally use startAfter, but for this refactor we stick to simple offset 
+    // or just fetch limit+offset and slice (if offset is small).
+    // For proper Firestore pagination, we need the last doc snapshot.
+    // For now, assume generic limit.
 
-        // Filter by type if specified
-        if (type !== 'all') {
-          filtered = filtered.filter(order => order.type === type);
-        }
+    // Performance: This query is O(N) where N is result set size (limit).
+    // Much faster than filtering 60 days of data.
+    const snapshot = await query.limit(limit + offset).get();
 
-        userOrders.push(...filtered.map(order => ({
-          ...order,
-          date: doc.id
-        })));
-      }
-    });
-
-    // Sort by timestamp in descending order (most recent first)
-    userOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    const totalOrders = userOrders.length;
-    const hasMore = offset + limit < totalOrders;
-
-    // Slice for pagination
-    const paginatedOrders = userOrders.slice(offset, offset + limit);
+    const allDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const paginatedOrders = allDocs.slice(offset, offset + limit);
+    const totalOrders = allDocs.length; // Approximate (doesn't count total in DB)
+    const hasMore = allDocs.length > offset + limit;
 
     res.json({
       success: true,
       orders: paginatedOrders,
       pagination: {
-        total: totalOrders,
+        total: totalOrders, // Note: This is only what we fetched. True count requires Aggregation Query
         limit,
         offset,
         hasMore
@@ -344,7 +354,7 @@ app.get('/api/orders/user/:userId', verifyToken, async (req, res) => {
   }
 });
 
-// Route: Get User Stats (Protected) - Optimized for Profile
+// Route: Get User Stats (Normalized)
 app.get('/api/users/:uid/stats', verifyToken, async (req, res) => {
   try {
     const { uid } = req.params;
@@ -353,29 +363,21 @@ app.get('/api/users/:uid/stats', verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    // Calculate date 60 days ago
-    const date = new Date();
-    date.setDate(date.getDate() - 60);
-    const dateString = date.toISOString().split('T')[0];
-
-    // Fetch last 60 days of data for stats
-    const statsSnapshot = await db.collection('daily_stats')
-      .where(admin.firestore.FieldPath.documentId(), '>=', dateString)
+    // Aggregation on 'orders' collection
+    // Fetch user's orders (Optimized: only needed fields)
+    const snapshot = await db.collection('orders')
+      .where('userId', '==', uid)
+      .select('type')
       .get();
 
     let totalOrders = 0;
     const typeCounts = { tea: 0, coffee: 0, juice: 0 };
 
-    statsSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      if (data.orders) {
-        const userOrders = data.orders.filter(o => o.userId === uid);
-        totalOrders += userOrders.length;
-        userOrders.forEach(o => {
-          if (typeCounts[o.type] !== undefined) {
-            typeCounts[o.type]++;
-          }
-        });
+    snapshot.docs.forEach(doc => {
+      const type = doc.data().type;
+      totalOrders++;
+      if (typeCounts[type] !== undefined) {
+        typeCounts[type]++;
       }
     });
 
