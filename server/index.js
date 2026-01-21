@@ -557,38 +557,45 @@ app.post('/api/notices/:id/vote', verifyToken, async (req, res) => {
 });
 
 // Route: Admin Stats Dashboard (Admin Only)
+// Route: Admin Stats Dashboard (Admin Only)
 app.get('/api/admin/stats', verifyToken, requireAdmin, async (req, res) => {
   try {
     // Get stats for the last 7 days
-    const stats = [];
+    const dates = [];
     const today = new Date();
 
+    // Generate last 7 dates
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-
-      const doc = await db.collection('daily_stats').doc(dateStr).get();
-
-      if (doc.exists) {
-        const data = doc.data();
-        stats.push({
-          date: dateStr,
-          tea: data.tea || 0,
-          coffee: data.coffee || 0,
-          juice: data.juice || 0,
-          total: (data.tea || 0) + (data.coffee || 0) + (data.juice || 0)
-        });
-      } else {
-        stats.push({
-          date: dateStr,
-          tea: 0,
-          coffee: 0,
-          juice: 0,
-          total: 0
-        });
-      }
+      dates.push(date.toISOString().split('T')[0]);
     }
+
+    // Create parallel fetch promises with projection (only needed fields)
+    const promises = dates.map(dateStr =>
+      db.collection('daily_stats')
+        .doc(dateStr)
+        .select('tea', 'coffee', 'juice') // OPTIMIZATION: Don't load the massive 'orders' array
+        .get()
+    );
+
+    const snapshots = await Promise.all(promises);
+
+    const stats = snapshots.map((doc, index) => {
+      const dateStr = dates[index];
+      const data = doc.exists ? doc.data() : {};
+      const tea = data.tea || 0;
+      const coffee = data.coffee || 0;
+      const juice = data.juice || 0;
+
+      return {
+        date: dateStr,
+        tea,
+        coffee,
+        juice,
+        total: tea + coffee + juice
+      };
+    });
 
     res.json({ success: true, stats });
   } catch (error) {
