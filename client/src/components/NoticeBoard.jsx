@@ -238,8 +238,6 @@ const NoticeBoard = forwardRef((props, ref) => {
                     onVote={handleVote}
                     votingId={votingId}
                     currentUser={currentUser}
-                    getUserVoteIndex={getUserVoteIndex}
-                    hasUserVoted={hasUserVoted}
                     setIsEditing={setEditingId}
                     setEditForm={setEditForm}
                   />

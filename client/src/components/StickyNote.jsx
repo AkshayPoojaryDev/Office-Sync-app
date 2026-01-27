@@ -44,8 +44,6 @@ const StickyNote = ({
     onVote,
     votingId, // Pass voting state
     currentUser,
-    getUserVoteIndex, // Helper function passed down
-    hasUserVoted, // Helper function passed down
     setIsEditing,
     setEditForm
 }) => {
@@ -58,8 +56,28 @@ const StickyNote = ({
 
     // Vote calculations
     const totalVotes = notice.pollOptions?.reduce((sum, opt) => sum + opt.votes, 0) || 0;
-    const voted = hasUserVoted(notice);
-    const userVoteIndex = getUserVoteIndex(notice);
+
+    const getUserVoteIndex = (notice) => {
+        // Multi-select: Check if it's an array
+        if (notice.votes && Array.isArray(notice.votes[currentUser?.uid])) {
+            return notice.votes[currentUser.uid]; // Returns array of indices
+        }
+
+        // Single-select: Number
+        if (notice.votes && notice.votes[currentUser?.uid] !== undefined) {
+            return notice.votes[currentUser.uid];
+        }
+
+        // Legacy
+        if (notice.voters?.includes(currentUser?.uid)) {
+            return -1;
+        }
+        return null;
+    };
+
+    const userVoteData = getUserVoteIndex(notice);
+    const voted = userVoteData !== null;
+    const isMultiSelect = !!notice.allowMultiple;
 
     const handleEditClick = () => {
         setIsEditing(notice.id);
@@ -122,20 +140,31 @@ const StickyNote = ({
                     <div className="flex-1 space-y-2">
                         <p className="text-gray-700 text-sm mb-3">{notice.message}</p>
 
-                        {notice.pollOptions?.map((option, optIndex) => (
-                            <PollOption
-                                key={optIndex}
-                                option={option}
-                                index={optIndex}
-                                notice={notice}
-                                voted={voted}
-                                totalVotes={totalVotes}
-                                isUserSelection={userVoteIndex === optIndex}
-                                isWinning={voted && option.votes === Math.max(...notice.pollOptions.map(o => o.votes)) && option.votes > 0}
-                                onVote={onVote}
-                                votingId={votingId}
-                            />
-                        ))}
+                        {notice.pollOptions?.map((option, optIndex) => {
+                            let isUserSelection = false;
+
+                            if (isMultiSelect && Array.isArray(userVoteData)) {
+                                isUserSelection = userVoteData.includes(optIndex);
+                            } else if (typeof userVoteData === 'number') {
+                                isUserSelection = userVoteData === optIndex;
+                            }
+
+                            return (
+                                <PollOption
+                                    key={optIndex}
+                                    option={option}
+                                    index={optIndex}
+                                    notice={notice}
+                                    voted={voted}
+                                    totalVotes={totalVotes}
+                                    isUserSelection={isUserSelection}
+                                    isWinning={voted && option.votes === Math.max(...notice.pollOptions.map(o => o.votes)) && option.votes > 0}
+                                    onVote={onVote}
+                                    votingId={votingId}
+                                    isMultiSelect={isMultiSelect}
+                                />
+                            );
+                        })}
 
                         <p className="text-xs text-gray-500 text-center mt-2">
                             {voted

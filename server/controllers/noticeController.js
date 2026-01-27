@@ -26,7 +26,7 @@ exports.getNotices = async (req, res) => {
 };
 
 exports.createNotice = async (req, res) => {
-    const { title, message, pollOptions } = req.body;
+    const { title, message, pollOptions, allowMultiple } = req.body;
     const { email, displayName } = req.user;
 
     try {
@@ -44,11 +44,13 @@ exports.createNotice = async (req, res) => {
         // Add poll data if pollOptions are provided
         if (pollOptions && Array.isArray(pollOptions) && pollOptions.length >= 2) {
             noticeData.isPoll = true;
+            noticeData.allowMultiple = !!allowMultiple; // Store flag
             noticeData.pollOptions = pollOptions.map(option => ({
                 text: option,
                 votes: 0
             }));
-            noticeData.voters = []; // Track who has voted
+            noticeData.voters = []; // Legacy support
+            noticeData.votes = {}; // Initialize votes map
         }
 
         await db.collection('notices').add(noticeData);
@@ -90,7 +92,7 @@ exports.deleteNotice = async (req, res) => {
 exports.voteOnPoll = async (req, res) => {
     try {
         const { id } = req.params;
-        const { optionIndex } = req.body; // optionIndex can be null to remove vote
+        const { optionIndex } = req.body; // optionIndex can be null (not used much anymore)
         const { uid } = req.user;
 
         const noticeRef = db.collection('notices').doc(id);
@@ -108,42 +110,85 @@ exports.voteOnPoll = async (req, res) => {
                 throw new Error("This notice is not a poll");
             }
 
-            // votes is now an object: { [uid]: optionIndex }
+            // votes is now an object: { [uid]: optionIndex (number) OR [index1, index2] (array) }
             const votes = data.votes || {};
             const pollOptions = [...data.pollOptions];
-            const previousVote = votes[uid];
+            const allowMultiple = !!data.allowMultiple;
 
-            // If user had a previous vote, decrement that option
-            if (previousVote !== undefined && previousVote !== null) {
-                if (pollOptions[previousVote]) {
-                    pollOptions[previousVote].votes = Math.max(0, pollOptions[previousVote].votes - 1);
+            let previousVote = votes[uid];
+
+            // Normalize previousVote to array for easier processing if needed, 
+            // but remember storage format differs
+
+            if (allowMultiple) {
+                // Multi-select Logic
+                if (typeof optionIndex !== 'number') throw new Error("Invalid option index");
+
+                let userVotes = [];
+                if (Array.isArray(previousVote)) {
+                    userVotes = [...previousVote];
+                } else if (typeof previousVote === 'number') {
+                    userVotes = [previousVote]; // Migrate old single vote to array
                 }
-            }
 
-            // Handle vote removal (optionIndex is null)
-            if (optionIndex === null) {
-                delete votes[uid];
+                const voteIdx = userVotes.indexOf(optionIndex);
+
+                if (voteIdx > -1) {
+                    // Remove vote
+                    userVotes.splice(voteIdx, 1);
+                    pollOptions[optionIndex].votes = Math.max(0, pollOptions[optionIndex].votes - 1);
+                } else {
+                    // Add vote
+                    userVotes.push(optionIndex);
+                    pollOptions[optionIndex].votes += 1;
+                }
+
+                votes[uid] = userVotes;
+
             } else {
-                // Validate new vote
-                if (typeof optionIndex !== 'number' || optionIndex < 0 || optionIndex >= pollOptions.length) {
-                    throw new Error("Invalid option index");
+                // Single-select Logic (Legacy + Default)
+
+                // If user had a previous vote (single number), remove it
+                if (typeof previousVote === 'number') {
+                    if (pollOptions[previousVote]) {
+                        pollOptions[previousVote].votes = Math.max(0, pollOptions[previousVote].votes - 1);
+                    }
+                } else if (Array.isArray(previousVote)) {
+                    // Should not happen in single mode, but clear them just in case
+                    previousVote.forEach(idx => {
+                        if (pollOptions[idx]) pollOptions[idx].votes = Math.max(0, pollOptions[idx].votes - 1);
+                    });
                 }
 
-                // Add new vote
-                pollOptions[optionIndex].votes += 1;
-                votes[uid] = optionIndex;
+                // Handle vote removal (optionIndex is null) - mainly for single select toggle off
+                if (optionIndex === null) {
+                    delete votes[uid];
+                } else {
+                    // Validate new vote
+                    if (typeof optionIndex !== 'number' || optionIndex < 0 || optionIndex >= pollOptions.length) {
+                        throw new Error("Invalid option index");
+                    }
+
+                    // If clicking the same option again, treat as deselect
+                    if (previousVote === optionIndex) {
+                        delete votes[uid];
+                    } else {
+                        // Add new vote
+                        pollOptions[optionIndex].votes += 1;
+                        votes[uid] = optionIndex;
+                    }
+                }
             }
 
             transaction.update(noticeRef, {
                 pollOptions,
                 votes,
-                // Keep voters array for backward compatibility
+                // Keep voters array for backward compatibility (list of UIDs)
                 voters: Object.keys(votes)
             });
         });
 
-        const action = optionIndex === null ? 'removed' : 'recorded';
-        res.status(200).json({ success: true, message: `Vote ${action}!` });
+        res.status(200).json({ success: true, message: "Vote updated!" });
     } catch (error) {
         console.error("Vote error:", error);
         res.status(400).json({ error: error.message || "Failed to vote" });

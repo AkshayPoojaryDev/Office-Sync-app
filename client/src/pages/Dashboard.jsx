@@ -109,6 +109,7 @@ function Dashboard() {
       // Add poll options if in poll mode
       if (isPollMode) {
         noticeData.pollOptions = pollOptions.filter(opt => opt.trim() !== '');
+        noticeData.allowMultiple = newNotice.allowMultiple;
       }
 
       await api.createNotice(noticeData);
@@ -315,7 +316,21 @@ function Dashboard() {
                       Add Option
                     </button>
                   )}
-                  <p className="text-xs text-purple-500 dark:text-purple-400">Add 2-6 options for your poll</p>
+
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
+                    <input
+                      type="checkbox"
+                      id="allowMultiple"
+                      checked={newNotice.allowMultiple || false}
+                      onChange={(e) => setNewNotice({ ...newNotice, allowMultiple: e.target.checked })}
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                    />
+                    <label htmlFor="allowMultiple" className="text-sm font-medium text-gray-700 dark:text-gray-300 select-none cursor-pointer">
+                      Allow multiple selections
+                    </label>
+                  </div>
+
+                  <p className="text-xs text-purple-500 dark:text-purple-400 mt-2">Add 2-6 options for your poll</p>
                 </div>
               )}
 
