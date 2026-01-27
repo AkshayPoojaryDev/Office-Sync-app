@@ -25,16 +25,24 @@ export function useNotices(initialLimit = 5) {
                 offset: currentOffset
             });
 
+            // Defensive check: Ensure data is an array
+            const data = response.data;
+            if (!Array.isArray(data)) {
+                console.error("API Error: Expected array of notices, received:", data);
+                throw new Error("Invalid data format received from server");
+            }
+
             if (reset) {
-                setNotices(response.data);
+                setNotices(data);
                 offsetRef.current = initialLimit;
             } else {
-                setNotices(prev => [...prev, ...response.data]);
+                setNotices(prev => [...prev, ...data]);
                 offsetRef.current += initialLimit;
             }
 
-            setHasMore(response.data.length === initialLimit);
+            setHasMore(data.length === initialLimit);
         } catch (err) {
+            console.error("Fetch notices failed:", err);
             setError(err);
         } finally {
             setLoading(false);
