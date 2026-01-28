@@ -9,7 +9,7 @@ const AuthContext = createContext();
 export function useAuth() {
   return useContext(AuthContext);
 }
-
+// AuthProvider component
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
