@@ -1,7 +1,9 @@
 // client/src/components/PollOption.jsx
 import React from 'react';
 
+// Single option component for a poll within a sticky note
 const PollOption = ({ option, index, notice, voted, totalVotes, isUserSelection, isWinning, onVote, votingId, isMultiSelect }) => {
+    // Calculate percentage of votes for this option
     const getVotePercentage = (votes, total) => {
         if (total === 0) return 0;
         return Math.round((votes / total) * 100);
@@ -13,6 +15,7 @@ const PollOption = ({ option, index, notice, voted, totalVotes, isUserSelection,
         <button
             onClick={() => {
                 if (votingId === notice.id) return;
+                // Handle toggle behavior
                 if (isUserSelection) {
                     onVote(notice.id, null); // Remove vote
                 } else {
@@ -34,6 +37,7 @@ const PollOption = ({ option, index, notice, voted, totalVotes, isUserSelection,
                 ></div>
             )}
 
+            {/* Option text and percentage */}
             <div className="relative flex items-center justify-between p-2.5">
                 <div className="flex items-center gap-2">
                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isUserSelection

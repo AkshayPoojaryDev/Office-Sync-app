@@ -1,9 +1,14 @@
 // server/controllers/orderController.js
+// Controller for Order processing and history management.
 const admin = require('firebase-admin');
 const { ORDER_TIME_SLOTS } = require('../config/constants');
 const db = admin.firestore();
 
-// Helper to check time slots
+/**
+ * Helper: Checks if a given timestamp falls within a specific ordering slot (morning/evening).
+ * @param {string} timestampStr 
+ * @param {string} slot - 'morning' or 'evening'
+ */
 const isInSlot = (timestampStr, slot) => {
     const date = new Date(timestampStr);
     const hours = date.getHours();
@@ -14,7 +19,17 @@ const isInSlot = (timestampStr, slot) => {
     return false;
 };
 
-// Place an Order
+/**
+ * Places a new order.
+ * 
+ * Logic Flow:
+ * 1. Validate Time: Check if the current time matches an allowed window.
+ * 2. Transaction Start:
+ * 3.   Check for duplicates (user already ordered in this slot?).
+ * 4.   Update 'daily_stats' (counters for Admin Dashboard).
+ * 5.   Create normalized 'orders' document (for scalable history).
+ * 6. Transaction Commit.
+ */
 exports.placeOrder = async (req, res) => {
     const { type } = req.body;
     const { uid, email, displayName } = req.user;
@@ -50,6 +65,7 @@ exports.placeOrder = async (req, res) => {
             const doc = await t.get(dailyStatsRef);
 
             let duplicate = false;
+            // Check for existing orders in the current slot
             if (doc.exists) {
                 const data = doc.data();
                 const orders = data.orders || [];
@@ -75,6 +91,7 @@ exports.placeOrder = async (req, res) => {
 
             // Perform Updates
             if (!doc.exists) {
+                // Initialize daily doc if first order of the day
                 t.set(dailyStatsRef, {
                     tea: type === 'tea' ? 1 : 0,
                     coffee: type === 'coffee' ? 1 : 0,
@@ -83,6 +100,7 @@ exports.placeOrder = async (req, res) => {
                     lastUpdated: new Date().toISOString()
                 });
             } else {
+                // Increment counters using atomic operations
                 t.update(dailyStatsRef, {
                     [type]: admin.firestore.FieldValue.increment(1),
                     // We keep updating this array for Admin Dashboard (so we don't break it)
@@ -113,7 +131,10 @@ exports.placeOrder = async (req, res) => {
     }
 };
 
-// Get Today's Orders for User
+/**
+ * Retrieves the current user's orders for Today.
+ * Used for the 'You ordered X' feedback on the Dashboard.
+ */
 exports.getMyOrders = async (req, res) => {
     const { uid } = req.user;
     try {
@@ -121,6 +142,7 @@ exports.getMyOrders = async (req, res) => {
         today.setHours(0, 0, 0, 0);
         const todayISO = today.toISOString();
 
+        // Optimized query on the normalized collection
         const snapshot = await db.collection('orders')
             .where('userId', '==', uid)
             .where('timestamp', '>=', todayISO)
@@ -136,7 +158,10 @@ exports.getMyOrders = async (req, res) => {
     }
 };
 
-// Get User's Order History (Normalized & Optimized)
+/**
+ * Retrieves full order history for a user with pagination.
+ * Used for the Order History page.
+ */
 exports.getUserOrderHistory = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -144,7 +169,7 @@ exports.getUserOrderHistory = async (req, res) => {
         const offset = parseInt(req.query.offset) || 0;
         const type = req.query.type || 'all';
 
-        // Auth check
+        // Auth check: Only allow users to view their own data (unless admin)
         if (req.user.uid !== userId && req.user.role !== 'admin') {
             return res.status(403).json({ success: false, message: "Unauthorized" });
         }
@@ -157,6 +182,7 @@ exports.getUserOrderHistory = async (req, res) => {
             query = query.where('type', '==', type);
         }
 
+        // Note: Firestore offset can be expensive. For very large datasets, cursor-based pagination is better.
         const snapshot = await query.limit(limit + offset).get();
 
         const allDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -180,7 +206,9 @@ exports.getUserOrderHistory = async (req, res) => {
     }
 };
 
-// Get User Stats
+/**
+ * Calculates aggregated stats (total counts, favorite drink) for a user.
+ */
 exports.getUserStats = async (req, res) => {
     try {
         const { uid } = req.params;
@@ -189,6 +217,7 @@ exports.getUserStats = async (req, res) => {
             return res.status(403).json({ error: "Unauthorized" });
         }
 
+        // Only select the 'type' field to save bandwidth
         const snapshot = await db.collection('orders')
             .where('userId', '==', uid)
             .select('type')
@@ -205,6 +234,7 @@ exports.getUserStats = async (req, res) => {
             }
         });
 
+        // Determine favorite
         let favorite = 'None';
         let maxCount = 0;
         Object.entries(typeCounts).forEach(([type, count]) => {

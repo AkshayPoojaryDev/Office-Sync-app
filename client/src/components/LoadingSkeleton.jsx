@@ -1,8 +1,10 @@
 // client/src/components/LoadingSkeleton.jsx
 /**
  * Reusable loading skeleton components for better UX
+ * These components mimic the layout of actual content while it's loading
  */
 
+// Skeleton for generic cards
 export function CardSkeleton() {
     return (
         <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
@@ -17,6 +19,7 @@ export function CardSkeleton() {
     );
 }
 
+// Skeleton for notice board items
 export function NoticeSkeleton() {
     return (
         <div className="p-6 border-b border-gray-100 animate-pulse">
@@ -33,6 +36,7 @@ export function NoticeSkeleton() {
     );
 }
 
+// Skeleton for table rows
 export function TableRowSkeleton() {
     return (
         <tr className="animate-pulse">
@@ -52,6 +56,7 @@ export function TableRowSkeleton() {
     );
 }
 
+// Skeleton for charts/graphs
 export function ChartSkeleton() {
     return (
         <div className="bg-white rounded-lg shadow p-6 animate-pulse">

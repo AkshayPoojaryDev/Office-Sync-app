@@ -12,13 +12,19 @@ import { useAuth } from "../contexts/AuthContext";
 import { api } from "../utils/api";
 import { useStats, useMyOrders } from "../hooks/useMetrics";
 
+/**
+ * Dashboard Component
+ * The main hub for users to place orders, view stats, and see announcements.
+ * Admins have additional controls to post notices and polls.
+ */
 function Dashboard() {
   const { currentUser, isAdmin } = useAuth();
 
-  // Use SWR hooks for caching
+  // Use SWR hooks for caching and real-time-like updates
   const { stats, loading: statsLoading, mutate: mutateStats } = useStats();
   const { myOrders, loading: ordersLoading, mutate: mutateOrders } = useMyOrders();
 
+  // Local state for UI interactions
   const [loading, setLoading] = useState(false); // Only for order submission
   const noticeBoardRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
@@ -28,6 +34,7 @@ function Dashboard() {
   const [pollOptions, setPollOptions] = useState(['', '']);
 
   // Helper to check if user entered an order in current slot
+  // Prevents double ordering within the same time window
   const hasOrderedInCurrentSlot = () => {
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -43,7 +50,7 @@ function Dashboard() {
 
     if (!currentSlot) return false; // Not in a slot at all
 
-    // Check orders
+    // Check if any of the user's recent orders fall into the current slot
     return myOrders.some(order => {
       const orderDate = new Date(order.timestamp);
       const orderMinutes = orderDate.getHours() * 60 + orderDate.getMinutes();
@@ -56,6 +63,7 @@ function Dashboard() {
 
   const isOrderDisabled = hasOrderedInCurrentSlot();
 
+  // Handle beverage order submission
   const handleOrder = async (type) => {
     if (loading) return;
     if (isOrderDisabled) {
@@ -79,7 +87,7 @@ function Dashboard() {
         colors: type === 'tea' ? ['#2dd4bf', '#14b8a6'] : type === 'coffee' ? ['#f59e0b', '#d97706'] : ['#ec4899', '#db2777']
       });
 
-      // Revalidate cache instantly
+      // Revalidate cache instantly to update global stats and user history
       mutateStats();
       mutateOrders();
     } catch (error) {
@@ -89,6 +97,7 @@ function Dashboard() {
     }
   };
 
+  // Handle new notice or poll creation (Admin only)
   const handlePostNotice = async (e) => {
     e.preventDefault();
     if (!newNotice.title?.trim() || !newNotice.message?.trim()) {
@@ -122,10 +131,14 @@ function Dashboard() {
 
       await api.createNotice(noticeData);
       toast.success(isPollMode ? "Poll created successfully! 📊" : "Announcement published successfully", { id: toastId });
+
+      // Reset form state
       setShowForm(false);
       setNewNotice({ title: "", message: "", type: "general" });
       setIsPollMode(false);
       setPollOptions(['', '']);
+
+      // Refresh the notice board list
       if (noticeBoardRef.current?.refresh) noticeBoardRef.current.refresh();
     } catch (error) {
       toast.error(error || "Failed to post announcement", { id: toastId });
@@ -134,12 +147,14 @@ function Dashboard() {
     }
   };
 
+  // Beverage configuration for UI mapping
   const beverages = [
     { type: 'tea', label: 'Tea', count: stats.tea, color: 'from-cyan-400 to-teal-500', shadow: 'shadow-teal-500/40', icon: '🫖', buttonBg: 'bg-teal-500' },
     { type: 'coffee', label: 'Coffee', count: stats.coffee, color: 'from-amber-400 to-orange-500', shadow: 'shadow-orange-500/40', icon: '☕', buttonBg: 'bg-orange-500' },
     { type: 'juice', label: 'Juice', count: stats.juice, color: 'from-pink-400 to-rose-500', shadow: 'shadow-pink-500/40', icon: '🧃', buttonBg: 'bg-pink-500' }
   ];
 
+  // Notice types configuration
   const noticeTypes = [
     { value: 'general', label: 'General', icon: 'ℹ️', color: 'gray' },
     { value: 'important', label: 'Important', icon: '⭐', color: 'blue' },
@@ -149,7 +164,7 @@ function Dashboard() {
 
   return (
     <Layout>
-      {/* Header */}
+      {/* Header Section */}
       <div className="mb-8 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div>
@@ -164,7 +179,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Beverage Orders */}
+      {/* Beverage Orders Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {beverages.map((bev, index) => (
           <div
@@ -224,7 +239,7 @@ function Dashboard() {
           )}
         </div>
 
-        {/* Admin Form */}
+        {/* Admin Form: Create Announcement or Poll */}
         {showForm && isAdmin && (
           <div className="glass-panel p-6 mb-8 rounded-3xl animate-fade-in border-2 border-indigo-100 dark:border-indigo-900/30">
             <div className="flex items-center justify-between mb-6">

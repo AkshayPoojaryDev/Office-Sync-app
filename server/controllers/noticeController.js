@@ -1,7 +1,12 @@
 // server/controllers/noticeController.js
+// Controller for handling Notices (Announcements) and Polls
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
+/**
+ * Fetches a paginated list of notices.
+ * Ordered by timestamp descending (newest first).
+ */
 exports.getNotices = async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 5;
@@ -25,6 +30,10 @@ exports.getNotices = async (req, res) => {
     }
 };
 
+/**
+ * Creates a new notice or poll.
+ * If 'pollOptions' are provided, initializes poll data structures.
+ */
 exports.createNotice = async (req, res) => {
     const { title, message, pollOptions, allowMultiple } = req.body;
     const { email, displayName } = req.user;
@@ -50,7 +59,7 @@ exports.createNotice = async (req, res) => {
                 votes: 0
             }));
             noticeData.voters = []; // Legacy support
-            noticeData.votes = {}; // Initialize votes map
+            noticeData.votes = {}; // Initialize votes map (stores user choices)
         }
 
         await db.collection('notices').add(noticeData);
@@ -62,6 +71,9 @@ exports.createNotice = async (req, res) => {
     }
 };
 
+/**
+ * Updates an existing notice.
+ */
 exports.updateNotice = async (req, res) => {
     try {
         const { id } = req.params;
@@ -78,6 +90,9 @@ exports.updateNotice = async (req, res) => {
     }
 };
 
+/**
+ * Deletes a notice by ID.
+ */
 exports.deleteNotice = async (req, res) => {
     try {
         const { id } = req.params;
@@ -89,6 +104,11 @@ exports.deleteNotice = async (req, res) => {
     }
 };
 
+/**
+ * Handles voting on a poll.
+ * Uses a transaction to ensure vote consistency and prevent race conditions.
+ * Supports both single-choice and multi-choice polls.
+ */
 exports.voteOnPoll = async (req, res) => {
     try {
         const { id } = req.params;
@@ -117,14 +137,12 @@ exports.voteOnPoll = async (req, res) => {
 
             let previousVote = votes[uid];
 
-            // Normalize previousVote to array for easier processing if needed, 
-            // but remember storage format differs
-
             if (allowMultiple) {
-                // Multi-select Logic
+                // --- Multi-select Logic ---
                 if (typeof optionIndex !== 'number') throw new Error("Invalid option index");
 
                 let userVotes = [];
+                // Normalize legacy storage or fetch current array
                 if (Array.isArray(previousVote)) {
                     userVotes = [...previousVote];
                 } else if (typeof previousVote === 'number') {
@@ -134,11 +152,11 @@ exports.voteOnPoll = async (req, res) => {
                 const voteIdx = userVotes.indexOf(optionIndex);
 
                 if (voteIdx > -1) {
-                    // Remove vote
+                    // Action: Remove vote (Toggle Off)
                     userVotes.splice(voteIdx, 1);
                     pollOptions[optionIndex].votes = Math.max(0, pollOptions[optionIndex].votes - 1);
                 } else {
-                    // Add vote
+                    // Action: Add vote (Toggle On)
                     userVotes.push(optionIndex);
                     pollOptions[optionIndex].votes += 1;
                 }
@@ -146,9 +164,9 @@ exports.voteOnPoll = async (req, res) => {
                 votes[uid] = userVotes;
 
             } else {
-                // Single-select Logic (Legacy + Default)
+                // --- Single-select Logic (Legacy + Default) ---
 
-                // If user had a previous vote (single number), remove it
+                // 1. Remove previous vote if it exists (decrement old option count)
                 if (typeof previousVote === 'number') {
                     if (pollOptions[previousVote]) {
                         pollOptions[previousVote].votes = Math.max(0, pollOptions[previousVote].votes - 1);
@@ -160,11 +178,12 @@ exports.voteOnPoll = async (req, res) => {
                     });
                 }
 
-                // Handle vote removal (optionIndex is null) - mainly for single select toggle off
+                // 2. Handle new vote
                 if (optionIndex === null) {
+                    // Explicit removal request
                     delete votes[uid];
                 } else {
-                    // Validate new vote
+                    // Validate new vote index
                     if (typeof optionIndex !== 'number' || optionIndex < 0 || optionIndex >= pollOptions.length) {
                         throw new Error("Invalid option index");
                     }
@@ -173,17 +192,18 @@ exports.voteOnPoll = async (req, res) => {
                     if (previousVote === optionIndex) {
                         delete votes[uid];
                     } else {
-                        // Add new vote
+                        // Apply new vote
                         pollOptions[optionIndex].votes += 1;
                         votes[uid] = optionIndex;
                     }
                 }
             }
 
+            // Commit transaction
             transaction.update(noticeRef, {
                 pollOptions,
                 votes,
-                // Keep voters array for backward compatibility (list of UIDs)
+                // Keep 'voters' array synced for backward compatibility (list of UIDs who voted)
                 voters: Object.keys(votes)
             });
         });

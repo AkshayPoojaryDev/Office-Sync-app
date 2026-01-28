@@ -3,7 +3,12 @@ import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, br
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
+/**
+ * Login Page Component
+ * Handles user authentication via Email/Password using Firebase
+ */
 function Login() {
+  // State for form inputs and UI feedback
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -11,17 +16,23 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      // Set persistence based on checkbox
+      // Set persistence based on "Remember Me" checkbox
+      // browserLocalPersistence: persists even after window is closed
+      // browserSessionPersistence: clears when window is closed
       const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
       await setPersistence(auth, persistenceType);
 
+      // Attempt sign-in with Firebase
       await signInWithEmailAndPassword(auth, email, password);
+
+      // Redirect to dashboard on success
       navigate("/dashboard");
     } catch (err) {
       console.error("Login error:", err);
@@ -33,7 +44,7 @@ function Login() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Branding */}
+      {/* Left Side - Branding & Value Proposition */}
       <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-[#243b53] to-[#102a43] p-12 flex-col justify-between relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
@@ -62,7 +73,7 @@ function Login() {
           </div>
         </div>
 
-        {/* Features */}
+        {/* Feature Highlights */}
         <div className="relative z-10 space-y-4">
           <div className="flex items-center space-x-3 text-white">
             <svg className="w-5 h-5 shrink-0 text-green-400" fill="currentColor" viewBox="0 0 20 20">

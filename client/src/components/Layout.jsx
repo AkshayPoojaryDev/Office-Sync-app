@@ -1,4 +1,5 @@
 // client/src/components/Layout.jsx - FUN & POP DESIGN
+// This component provides the persistent layout structure including the sidebar and mobile header
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { auth } from "../firebase";
@@ -9,7 +10,7 @@ export default function Layout({ children }) {
   const { currentUser, isAdmin, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // State for mobile sidebar toggle
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   const handleLogout = async () => {
@@ -21,8 +22,10 @@ export default function Layout({ children }) {
     }
   };
 
+  // Helper to check if a link is active
   const isActive = (path) => location.pathname === path;
 
+  // Navigation items configuration
   const navigation = [
     {
       name: 'Dashboard',
@@ -53,6 +56,7 @@ export default function Layout({ children }) {
     }
   ];
 
+  // Add Admin route if user is admin
   if (isAdmin) {
     navigation.push({
       name: 'Admin',
@@ -67,7 +71,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen transition-colors duration-300">
-      {/* Background Blobs */}
+      {/* Background Blobs for visual appeal */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-300/30 dark:bg-purple-900/20 rounded-full mix-blend-multiply blur-3xl animate-float opacity-70"></div>
         <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-indigo-300/30 dark:bg-indigo-900/20 rounded-full mix-blend-multiply blur-3xl animate-float opacity-70" style={{ animationDelay: '2s' }}></div>
@@ -87,7 +91,7 @@ export default function Layout({ children }) {
             </span>
           </div>
 
-          {/* Navigation */}
+          {/* Navigation Links */}
           <nav className="flex-1 px-4 space-y-4">
             {navigation.map((item) => (
               <Link
@@ -106,7 +110,7 @@ export default function Layout({ children }) {
             ))}
           </nav>
 
-          {/* Dark Mode & User */}
+          {/* Dark Mode Toggle & User Profile */}
           <div className="px-4 mt-auto space-y-4">
             <button
               onClick={toggleDarkMode}
@@ -149,7 +153,7 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      {/* Mobile Header */}
+      {/* Mobile Header (Visible only on small screens) */}
       <div className="md:hidden sticky top-0 z-40 flex items-center justify-between h-20 px-4 glass-panel border-b-0 rounded-b-3xl mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -209,7 +213,7 @@ export default function Layout({ children }) {
         </div>
       )}
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="md:pl-28 lg:pl-72 flex flex-col flex-1 transition-all duration-300">
         <main className="flex-1 py-8 px-4 sm:px-8 max-w-7xl mx-auto w-full">
           {children}

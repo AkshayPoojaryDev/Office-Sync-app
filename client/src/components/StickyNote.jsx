@@ -2,6 +2,7 @@
 import React from 'react';
 import PollOption from './PollOption';
 
+// Configuration for visual styles of different sticky note types
 const STICKY_CONFIG = {
     general: {
         bg: 'bg-yellow-100 dark:bg-yellow-900/30',
@@ -59,14 +60,17 @@ const StickyNote = ({
 }) => {
     const isPoll = notice.isPoll;
 
-    // Determine style
+    // Determine style based on notice type or if it's a poll
     const config = notice.isPoll ? STICKY_CONFIG.poll : (STICKY_CONFIG[notice.type] || STICKY_CONFIG.general);
+
+    // Random rotation for natural sticky note look
     const rotations = ['rotate-1', '-rotate-1', 'rotate-2', '-rotate-2'];
     const rotateClass = rotations[index % rotations.length];
 
     // Vote calculations
     const totalVotes = notice.pollOptions?.reduce((sum, opt) => sum + opt.votes, 0) || 0;
 
+    // Helper to determine the user's vote status
     const getUserVoteIndex = (notice) => {
         // Multi-select: Check if it's an array
         if (notice.votes && Array.isArray(notice.votes[currentUser?.uid])) {
@@ -78,7 +82,7 @@ const StickyNote = ({
             return notice.votes[currentUser.uid];
         }
 
-        // Legacy
+        // Legacy format support
         if (notice.voters?.includes(currentUser?.uid)) {
             return -1;
         }
@@ -98,20 +102,20 @@ const StickyNote = ({
         <div
             className={`relative ${rotateClass} transition-transform duration-300 group hover:z-50 animate-swing cursor-pointer ${isPoll ? 'md:col-span-2 lg:col-span-1' : ''}`}
         >
-            {/* Pushpin */}
+            {/* Pushpin UI element */}
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 hover:-translate-y-1 transition-transform">
                 <div className={`w-8 h-8 ${config.pin} rounded-full shadow-lg flex items-center justify-center border-2 border-white/50 backdrop-blur-sm`}>
                     <div className="w-2.5 h-2.5 bg-white/70 rounded-full shadow-inner"></div>
                 </div>
             </div>
 
-            {/* Sticky Note */}
+            {/* Sticky Note Container */}
             <div className={`${config.bg} p-6 pt-8 rounded-3xl border-2 ${config.border} shadow-xl ${config.shadow} min-h-[220px] flex flex-col relative overflow-hidden backdrop-blur-sm transition-all hover:shadow-2xl`}>
 
                 {/* Decoration blob */}
                 <div className="absolute -right-6 -top-6 w-20 h-20 bg-white/20 rounded-full blur-xl"></div>
 
-                {/* Admin Controls */}
+                {/* Admin Controls (Edit/Delete) - only visible to admins on hover */}
                 {isAdmin && (
                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 scale-90">
                         <button
@@ -141,7 +145,7 @@ const StickyNote = ({
                     {notice.title}
                 </h4>
 
-                {/* Message or Poll */}
+                {/* Content: Message or Poll Options */}
                 {isPoll ? (
                     <div className="flex-1 space-y-3 mt-2">
                         {notice.message && (
@@ -188,7 +192,7 @@ const StickyNote = ({
                     </p>
                 )}
 
-                {/* Footer */}
+                {/* Footer: Author and Date */}
                 <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300">

@@ -6,6 +6,7 @@ import { api } from "../utils/api";
 import toast from "react-hot-toast";
 import StickyNote from "./StickyNote";
 
+// Configuration for different sticky note types (colors, shadows, labels)
 const STICKY_CONFIG = {
   general: {
     bg: 'bg-yellow-100 dark:bg-yellow-200',
@@ -41,24 +42,31 @@ const STICKY_CONFIG = {
 
 
 const NoticeBoard = forwardRef((props, ref) => {
+  // Use custom hook to fetch notices
   const { notices, loading, error, hasMore, refresh, loadMore, updateNotice } = useNotices(10);
   const { currentUser, isAdmin } = useAuth();
+
+  // Local state for editing functionality
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', message: '', type: 'general' });
   const [votingId, setVotingId] = useState(null);
 
+  // Expose refresh method to parent components
   useImperativeHandle(ref, () => ({ refresh }));
 
+  // Handle entering edit mode
   const handleEdit = (notice) => {
     setEditingId(notice.id);
     setEditForm({ title: notice.title, message: notice.message, type: notice.type });
   };
 
+  // Cancel edit mode
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditForm({ title: '', message: '', type: 'general' });
   };
 
+  // Submit updated notice to API
   const handleUpdate = async (id) => {
     const toastId = toast.loading("Updating announcement...");
     try {
@@ -71,6 +79,7 @@ const NoticeBoard = forwardRef((props, ref) => {
     }
   };
 
+  // Delete notice
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this announcement?")) return;
 
@@ -84,6 +93,7 @@ const NoticeBoard = forwardRef((props, ref) => {
     }
   };
 
+  // Handle user voting on polls
   const handleVote = async (noticeId, optionIndex) => {
     setVotingId(noticeId);
     const isRemoving = optionIndex === null;
@@ -99,6 +109,7 @@ const NoticeBoard = forwardRef((props, ref) => {
     }
   };
 
+  // Helper to get which option the current user voted for
   const getUserVoteIndex = (notice) => {
     if (notice.votes && notice.votes[currentUser?.uid] !== undefined) {
       return notice.votes[currentUser.uid];
@@ -109,6 +120,7 @@ const NoticeBoard = forwardRef((props, ref) => {
     return null;
   };
 
+  // Helper to check if user has voted
   const hasUserVoted = (notice) => {
     return getUserVoteIndex(notice) !== null;
   };

@@ -3,17 +3,31 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../utils/api';
 
 /**
- * Custom hook for managing notices
- * Handles fetching, pagination, and state management
- * Optimized with proper cleanup and memoization
+ * useNotices Hook
+ * 
+ * Manages the fetching, pagination, and local state of dashboard notices.
+ * 
+ * Features:
+ * - Infinite scrolling support (loadMore)
+ * - Pull-to-refresh style reloading (refresh)
+ * - Local optimistic updates (updateNotice)
+ * - Prevents race conditions with refs
+ * 
+ * @param {number} initialLimit - Number of notices to fetch per page
  */
 export function useNotices(initialLimit = 5) {
     const [notices, setNotices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [hasMore, setHasMore] = useState(true);
-    const offsetRef = useRef(0); // Use ref to avoid dependency issues
 
+    // Use ref for offset to maintain value across closure captures without triggering re-renders
+    const offsetRef = useRef(0);
+
+    /**
+     * Core fetching logic.
+     * @param {boolean} reset - If true, clears list and starts from offset 0.
+     */
     const fetchNotices = useCallback(async (reset = false) => {
         try {
             setLoading(true);
@@ -40,6 +54,7 @@ export function useNotices(initialLimit = 5) {
                 offsetRef.current += initialLimit;
             }
 
+            // If we received fewer items than the limit, we've reached the end
             setHasMore(data.length === initialLimit);
         } catch (err) {
             console.error("Fetch notices failed:", err);
@@ -49,17 +64,24 @@ export function useNotices(initialLimit = 5) {
         }
     }, [initialLimit]);
 
+    /**
+     * Public method to reset and reload the list
+     */
     const refresh = useCallback(() => {
         offsetRef.current = 0;
         fetchNotices(true);
     }, [fetchNotices]);
 
+    /**
+     * Public method to load the next page of notices
+     */
     const loadMore = useCallback(() => {
         if (!loading && hasMore) {
             fetchNotices(false);
         }
     }, [loading, hasMore, fetchNotices]);
 
+    // Initial load on mount
     useEffect(() => {
         let isMounted = true;
 
@@ -76,6 +98,7 @@ export function useNotices(initialLimit = 5) {
         };
     }, [fetchNotices]);
 
+    // Optimistic update helper
     const updateNotice = useCallback((id, updater) => {
         setNotices(prev => prev.map(n => n.id === id ? (typeof updater === 'function' ? updater(n) : updater) : n));
     }, []);
@@ -87,7 +110,7 @@ export function useNotices(initialLimit = 5) {
         hasMore,
         refresh,
         loadMore,
-        updateNotice, // Exported for optimistic updates
-        setNotices // Exported if needed for other manipulations
+        updateNotice, // Exported for optimistic updates (e.g., voting)
+        setNotices // Exported for direct state manipulation if needed
     };
 }

@@ -7,9 +7,16 @@ import { api } from "../utils/api";
 import Layout from "../components/Layout";
 import { useUserStats } from "../hooks/useMetrics";
 
+/**
+ * Profile Page
+ * Displays user account information and visualized personal order statistics.
+ */
 export default function Profile() {
     const { currentUser, isAdmin } = useAuth();
+    // Local state for role visualization, synced with auth context
     const [userRole, setUserRole] = useState(isAdmin ? 'admin' : 'user');
+
+    // Fetch personalized stats using SWR
     const { orderStats, loading } = useUserStats(currentUser?.uid);
 
     const displayName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
@@ -20,6 +27,7 @@ export default function Profile() {
         setUserRole(isAdmin ? 'admin' : 'user');
     }, [isAdmin]);
 
+    // Format stats for display, handling potential undefined values
     const formattedStats = {
         total: orderStats.totalOrders,
         tea: orderStats.typeCounts?.tea || 0,
@@ -28,6 +36,9 @@ export default function Profile() {
         favorite: orderStats.favoriteBeverage === 'None' ? null : orderStats.favoriteBeverage?.toLowerCase()
     };
 
+    /**
+     * Helper to get the icon for the favorite beverage
+     */
     const getFavoriteIcon = () => {
         switch (formattedStats.favorite) {
             case 'tea': return '🫖';
@@ -79,7 +90,7 @@ export default function Profile() {
                             </div>
                         </div>
 
-                        {/* Profile Details */}
+                        {/* Profile Details List */}
                         <div className="p-6 space-y-5">
                             {/* Display Name Field */}
                             <div className="group">
@@ -123,7 +134,7 @@ export default function Profile() {
                                 </div>
                             </div>
 
-                            {/* Account Status */}
+                            {/* Account Status Footer */}
                             <div className="pt-4 border-t border-gray-100 dark:border-slate-700">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">

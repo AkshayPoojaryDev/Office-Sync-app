@@ -1,9 +1,19 @@
 // server/middleware/auth.js
-// Firebase authentication and authorization middleware
+// Firebase Authentication and Authorization Middleware
+// Handles ID token verification, user context attachment, and role-based access control.
 
 const admin = require('firebase-admin');
 
-// Middleware to verify Firebase ID token
+/**
+ * Middleware: Verify Firebase ID Token
+ * 
+ * 1. Checks for 'Authorization: Bearer <token>' header.
+ * 2. Verifies the token using Firebase Admin SDK.
+ * 3. Fetches the user's role from Firestore (claims are too often stale, so we check DB).
+ * 4. Attaches the user object (uid, email, role) to the request context (req.user).
+ * 
+ * Used globally or on protected routes.
+ */
 const verifyToken = async (req, res, next) => {
     try {
         // Get token from Authorization header
@@ -31,14 +41,15 @@ const verifyToken = async (req, res, next) => {
             });
         }
 
-        // Attach user info to request
+        // Attach basic user info from token to request
         req.user = {
             uid: decodedToken.uid,
             email: decodedToken.email,
             emailVerified: decodedToken.email_verified,
         };
 
-        // Fetch user role from Firestore
+        // Fetch user role from Firestore to ensure latest permissions
+        // Note: Custom Claims could be faster, but DB is more real-time for role changes
         try {
             const userDoc = await admin.firestore()
                 .collection('users')
@@ -49,7 +60,7 @@ const verifyToken = async (req, res, next) => {
                 req.user.role = userDoc.data().role || 'user';
                 req.user.displayName = userDoc.data().displayName;
             } else {
-                // Create user document if it doesn't exist
+                // Auto-create user document if it doesn't exist (First Login)
                 await admin.firestore()
                     .collection('users')
                     .doc(decodedToken.uid)
@@ -78,7 +89,11 @@ const verifyToken = async (req, res, next) => {
     }
 };
 
-// Middleware to check if user is admin
+/**
+ * Middleware: Require Admin Role
+ * Must be used after verifyToken.
+ * Rejects request if req.user.role is not 'admin'.
+ */
 const requireAdmin = (req, res, next) => {
     if (!req.user) {
         return res.status(401).json({
@@ -97,7 +112,11 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-// Optional auth - doesn't fail if no token
+/**
+ * Middleware: Optional Authentication
+ * Attempts to verify a token if present, but does not block the request if missing or invalid.
+ * Useful for routes that show more data to logged-in users but work anonymously too.
+ */
 const optionalAuth = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
@@ -112,7 +131,7 @@ const optionalAuth = async (req, res, next) => {
             };
         }
     } catch (error) {
-        // Silently fail for optional auth
+        // Silently fail for optional auth - just don't populate req.user
         console.log('Optional auth failed:', error.message);
     }
 
