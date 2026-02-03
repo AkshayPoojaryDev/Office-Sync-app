@@ -6,23 +6,38 @@ import toast from "react-hot-toast";
 import Layout from "../components/Layout";
 import { useUserStats } from "../hooks/useMetrics";
 
+/**
+ * OrderHistory Page
+ * Displays a paginated list of the user's past orders with filtering options.
+ * Allows exporting order history to CSV.
+ */
 export default function OrderHistory() {
     const { currentUser } = useAuth();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
 
-    // Use cached stats
+    // Use cached stats for the summary cards
     const { orderStats: stats } = useUserStats(currentUser?.uid);
 
+    // Pagination state
     const [offset, setOffset] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const LIMIT = 20;
 
     useEffect(() => {
-        fetchOrders(true); // Initial fetch
+        fetchOrders(true); // Initial fetch when component mounts
     }, []);
 
+    // Better to use useEffect for filter changes to trigger refetch
+    useEffect(() => {
+        fetchOrders(true);
+    }, [filter]);
+
+    /**
+     * Fetches orders from the API
+     * @param {boolean} reset - If true, clears existing orders and starts from offset 0
+     */
     const fetchOrders = async (reset = false) => {
         try {
             if (reset) {
@@ -59,11 +74,9 @@ export default function OrderHistory() {
         setFilter(newFilter);
     };
 
-    // Better to use useEffect for filter changes
-    useEffect(() => {
-        fetchOrders(true);
-    }, [filter]);
-
+    /**
+     * Generates and downloads a CSV file of the current orders
+     */
     const exportToCSV = () => {
         const headers = ['Date', 'Time', 'Type', 'Email'];
         const rows = orders.map(order => [
@@ -116,7 +129,7 @@ export default function OrderHistory() {
                 </div>
             </div>
 
-            {/* Filters and Export */}
+            {/* Filters and Export Controls */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 mb-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex flex-wrap gap-2">

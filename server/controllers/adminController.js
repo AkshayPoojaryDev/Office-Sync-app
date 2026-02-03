@@ -1,7 +1,17 @@
 // server/controllers/adminController.js
+// Controller for Admin Dashboard analytics and management
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
+/**
+ * Retrieves statistics for the last 7 days.
+ * Used for populating the charts on the Admin Dashboard.
+ * 
+ * Strategy:
+ * 1. Generate an array of date strings for the last 7 days.
+ * 2. Fetch all corresponding 'daily_stats' documents in parallel using an 'in' query.
+ * 3. Map the results to the date array, filling in zeros for missing days.
+ */
 exports.getAdminStats = async (req, res) => {
     try {
         // Get stats for the last 7 days
@@ -49,6 +59,10 @@ exports.getAdminStats = async (req, res) => {
     }
 };
 
+/**
+ * Hard resets all stats for the current day.
+ * Destructive action: Wipes counts and the orders array for today's doc.
+ */
 exports.resetStats = async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
@@ -66,6 +80,10 @@ exports.resetStats = async (req, res) => {
     }
 };
 
+/**
+ * Retrieves today's total stats for public display.
+ * Used by the main Client Dashboard.
+ */
 exports.getPublicStats = async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];

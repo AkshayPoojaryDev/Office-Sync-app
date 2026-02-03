@@ -5,7 +5,8 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { config } from "./config";
 
-// Firebase configuration from environment variables
+// Firebase configuration object constructed from environment variables
+// These values are safe to expose in the client-side code
 const firebaseConfig = {
   apiKey: config.firebase.apiKey,
   authDomain: config.firebase.authDomain,
@@ -15,7 +16,9 @@ const firebaseConfig = {
   appId: config.firebase.appId,
 };
 
-// Initialize Firebase
+// Initialize Firebase app instance
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize and export Firebase services
+export const auth = getAuth(app); // Authentication service
+export const db = getFirestore(app); // Firestore database service

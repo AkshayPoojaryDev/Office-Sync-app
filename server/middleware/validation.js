@@ -1,9 +1,16 @@
 // server/middleware/validation.js
-// Input validation middleware using express-validator
+// Input Validation Middleware
+// Uses 'express-validator' to sanitize and validate request bodies and params.
+// Ensures data integrity before it reaches the controllers.
 
 const { body, param, validationResult } = require('express-validator');
 
-// Middleware to check validation results
+/**
+ * Validation Result Handler
+ * Checks if previous validation rules in the chain generated any errors.
+ * Returns 400 Bad Request with error details if validation fails.
+ * Otherwise, passes control to the next middleware/controller.
+ */
 const validate = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -16,7 +23,10 @@ const validate = (req, res, next) => {
     next();
 };
 
-// Validation rules for order creation
+/**
+ * Validation Rules: Place Order
+ * Checks: userId, email, and order type ('tea', 'coffee', 'juice').
+ */
 const validateOrder = [
     body('userId')
         .trim()
@@ -37,7 +47,11 @@ const validateOrder = [
     validate
 ];
 
-// Validation rules for notice creation
+/**
+ * Validation Rules: Create Notice
+ * Checks: title, message content, author email, type, and poll options (if applicable).
+ * Sanctuary: escape() used to prevent XSS.
+ */
 const validateNotice = [
     body('title')
         .trim()
@@ -74,7 +88,10 @@ const validateNotice = [
     validate
 ];
 
-// Validation rules for notice update
+/**
+ * Validation Rules: Update Notice
+ * Ensures 'id' param exists and validates optional update fields.
+ */
 const validateNoticeUpdate = [
     param('id')
         .trim()
@@ -95,7 +112,10 @@ const validateNoticeUpdate = [
     validate
 ];
 
-// Validation rules for notice deletion
+/**
+ * Validation Rules: Delete Notice
+ * Simply ensures the 'id' parameter is present.
+ */
 const validateNoticeId = [
     param('id')
         .trim()

@@ -5,6 +5,11 @@ import { api } from "../utils/api";
 import toast from "react-hot-toast";
 import Layout from "../components/Layout";
 
+/**
+ * AdminDashboard Page
+ * Provides an overview of system activity for administrators.
+ * Includes visualizations of order trends and controls for data management.
+ */
 export default function AdminDashboard() {
     const { currentUser } = useAuth();
     const [stats, setStats] = useState([]);
@@ -15,6 +20,9 @@ export default function AdminDashboard() {
         fetchAdminStats();
     }, []);
 
+    /**
+     * Fetches daily statistics for the admin dashboard
+     */
     const fetchAdminStats = async () => {
         try {
             setLoading(true);
@@ -31,6 +39,10 @@ export default function AdminDashboard() {
         }
     };
 
+    /**
+     * Resets the daily statistics
+     * This is a destructive action and requires confirmation
+     */
     const handleResetStats = async () => {
         if (!window.confirm("Are you sure you want to reset today's stats to zero? This cannot be undone.")) {
             return;
@@ -39,7 +51,7 @@ export default function AdminDashboard() {
         try {
             await api.resetTodayStats();
             toast.success("Today's stats have been reset to zero!");
-            fetchAdminStats(); // Refresh the data
+            fetchAdminStats(); // Refresh the data to show zeroed stats
         } catch (error) {
             toast.error("Failed to reset stats: " + error);
         } finally {
@@ -47,6 +59,7 @@ export default function AdminDashboard() {
         }
     };
 
+    // Calculate aggregated totals from the daily stats array
     const totals = stats.reduce((acc, day) => ({
         tea: acc.tea + day.tea,
         coffee: acc.coffee + day.coffee,
@@ -54,11 +67,12 @@ export default function AdminDashboard() {
         total: acc.total + day.total
     }), { tea: 0, coffee: 0, juice: 0, total: 0 });
 
+    // Determine max orders for scaling charts
     const maxOrders = Math.max(...stats.map(s => s.total), 1);
 
     return (
         <Layout>
-            {/* Header */}
+            {/* Header with Actions */}
             <div className="mb-8 flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
@@ -78,6 +92,7 @@ export default function AdminDashboard() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                {/* Total Orders Card */}
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
                     <div className="flex items-center justify-between">
                         <div>
@@ -93,6 +108,7 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Beverage Type Cards */}
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
                     <div className="flex items-center justify-between">
                         <div>
@@ -133,8 +149,9 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
+            {/* Visualizations Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Daily Trend Chart */}
+                {/* Daily Trend Chart (Custom Bar Chart) */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">Daily Order Trend</h3>
 
@@ -156,6 +173,7 @@ export default function AdminDashboard() {
                                         <span className="text-gray-600 font-semibold">{day.total}</span>
                                     </div>
                                     <div className="flex gap-1 h-8">
+                                        {/* Stacked Bars for each beverage type */}
                                         {day.tea > 0 && (
                                             <div
                                                 className="bg-blue-500 rounded transition-all duration-300 hover:bg-blue-600"
@@ -183,7 +201,7 @@ export default function AdminDashboard() {
                         </div>
                     )}
 
-                    {/* Legend */}
+                    {/* Chart Legend */}
                     <div className="mt-6 pt-4 border-t border-gray-100 flex gap-4">
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-blue-500 rounded"></div>
@@ -200,7 +218,7 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* Distribution Chart */}
+                {/* Order Distribution Donut Chart */}
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">Order Distribution</h3>
 
@@ -210,12 +228,12 @@ export default function AdminDashboard() {
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center">
-                            {/* Donut Chart Representation */}
+                            {/* SVG Donut Chart logic */}
                             <div className="relative w-56 h-56 mb-8">
                                 <svg viewBox="0 0 200 200" className="transform -rotate-90">
                                     {totals.total > 0 && (
                                         <>
-                                            {/* Tea */}
+                                            {/* Tea Segment */}
                                             <circle
                                                 cx="100"
                                                 cy="100"
@@ -225,7 +243,7 @@ export default function AdminDashboard() {
                                                 strokeWidth="40"
                                                 strokeDasharray={`${(totals.tea / totals.total) * 440} 440`}
                                             />
-                                            {/* Coffee */}
+                                            {/* Coffee Segment */}
                                             <circle
                                                 cx="100"
                                                 cy="100"
@@ -236,7 +254,7 @@ export default function AdminDashboard() {
                                                 strokeDasharray={`${(totals.coffee / totals.total) * 440} 440`}
                                                 strokeDashoffset={`-${(totals.tea / totals.total) * 440}`}
                                             />
-                                            {/* Juice */}
+                                            {/* Juice Segment */}
                                             <circle
                                                 cx="100"
                                                 cy="100"
@@ -258,7 +276,7 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
 
-                            {/* Stats */}
+                            {/* Distribution Legend/Stats */}
                             <div className="w-full space-y-3">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -293,7 +311,7 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Data Table */}
+            {/* Daily Breakdown Table */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-900">Daily Breakdown</h3>

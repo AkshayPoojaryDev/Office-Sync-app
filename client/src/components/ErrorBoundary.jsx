@@ -1,16 +1,22 @@
 // client/src/components/ErrorBoundary.jsx
 import { Component } from 'react';
 
+// ErrorBoundary component to catch JavaScript errors anywhere in the child component tree
+// It logs errors and displays a fallback UI instead of crashing the whole app
 class ErrorBoundary extends Component {
     constructor(props) {
         super(props);
         this.state = { hasError: false, error: null, errorInfo: null };
     }
 
+    // Lifecycle method called when an error is thrown in a descendant component
+    // Updates state so the next render will show the fallback UI
     static getDerivedStateFromError(error) {
         return { hasError: true };
     }
 
+    // Lifecycle method called after an error has been thrown
+    // Used for logging error information
     componentDidCatch(error, errorInfo) {
         console.error('Error caught by boundary:', error, errorInfo);
         this.setState({
@@ -21,6 +27,7 @@ class ErrorBoundary extends Component {
 
     render() {
         if (this.state.hasError) {
+            // Render fallback UI if an error occurred
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
                     <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
@@ -33,6 +40,7 @@ class ErrorBoundary extends Component {
                                 We're sorry for the inconvenience. Please try refreshing the page.
                             </p>
 
+                            {/* Show detailed error info in development mode */}
                             {process.env.NODE_ENV === 'development' && this.state.error && (
                                 <details className="text-left bg-gray-50 rounded p-4 mb-4">
                                     <summary className="cursor-pointer font-semibold text-sm text-gray-700 mb-2">
@@ -57,6 +65,7 @@ class ErrorBoundary extends Component {
             );
         }
 
+        // Render children normally if no error
         return this.props.children;
     }
 }

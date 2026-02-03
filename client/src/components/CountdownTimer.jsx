@@ -4,23 +4,27 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 
 function CountdownTimer() {
+    // State to hold the countdown specific data
     const [timeInfo, setTimeInfo] = useState({
         timeLeft: { hours: 0, minutes: 0, seconds: 0 },
-        currentSlot: null,
-        nextSlot: null,
-        isOpen: false,
-        urgency: 'normal'
+        currentSlot: null, // 'morning' or 'evening' if open
+        nextSlot: null,    // 'morning' or 'evening' if closed
+        isOpen: false,     // Whether orders are currently being accepted
+        urgency: 'normal'  // 'normal', 'warning', 'critical' based on time left
     });
 
     useEffect(() => {
+        // Function to calculate the time remaining and slot status
         const calculateTimeInfo = () => {
             const now = new Date();
+            // Convert current time to total minutes from midnight for easier comparison
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
             const currentSeconds = now.getSeconds();
 
-            const morningEnd = 10 * 60 + 30;
-            const eveningStart = 15 * 60;
-            const eveningEnd = 17 * 60 + 30;
+            // Define slot boundaries in minutes from midnight
+            const morningEnd = 10 * 60 + 30; // 10:30 AM
+            const eveningStart = 15 * 60;    // 3:00 PM
+            const eveningEnd = 17 * 60 + 30; // 5:30 PM
 
             let isOpen = false;
             let currentSlot = null;
@@ -28,32 +32,39 @@ function CountdownTimer() {
             let targetMinutes = 0;
             let urgency = 'normal';
 
+            // Check which slot we are in or upcoming
             if (currentMinutes <= morningEnd) {
+                // Morning slot is open
                 isOpen = true;
                 currentSlot = 'morning';
                 targetMinutes = morningEnd;
             } else if (currentMinutes >= eveningStart && currentMinutes <= eveningEnd) {
+                // Evening slot is open
                 isOpen = true;
                 currentSlot = 'evening';
                 targetMinutes = eveningEnd;
             } else if (currentMinutes > morningEnd && currentMinutes < eveningStart) {
+                // Between morning and evening slots (Closed)
                 isOpen = false;
                 nextSlot = 'evening';
                 targetMinutes = eveningStart;
             } else {
+                // After evening slot (Closed until tomorrow morning)
                 isOpen = false;
                 nextSlot = 'morning';
-                targetMinutes = 24 * 60 + morningEnd;
+                targetMinutes = 24 * 60 + morningEnd; // Add 24 hours
             }
 
+            // Calculate time difference
             let diffMinutes = targetMinutes - currentMinutes;
-            if (diffMinutes < 0) diffMinutes += 24 * 60;
+            if (diffMinutes < 0) diffMinutes += 24 * 60; // Handle day wrap-around
 
             const totalSeconds = diffMinutes * 60 - currentSeconds;
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
 
+            // Determine urgency based on time remaining
             if (isOpen) {
                 if (diffMinutes <= 10) urgency = 'critical';
                 else if (diffMinutes <= 30) urgency = 'warning';
@@ -62,13 +73,17 @@ function CountdownTimer() {
             return { timeLeft: { hours, minutes, seconds }, currentSlot, nextSlot, isOpen, urgency };
         };
 
+        // Initial calculation
         setTimeInfo(calculateTimeInfo());
+        // Update every second
         const timer = setInterval(() => setTimeInfo(calculateTimeInfo()), 1000);
         return () => clearInterval(timer);
     }, []);
 
+    // Helper to format numbers with leading zero
     const formatNumber = useCallback((num) => String(Math.max(0, num)).padStart(2, '0'), []);
 
+    // Helper to get CSS classes based on state
     const getContainerClasses = useCallback(() => {
         if (!timeInfo.isOpen) return 'bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-600 dark:text-gray-300';
         switch (timeInfo.urgency) {
